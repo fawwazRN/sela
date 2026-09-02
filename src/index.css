@@ -1,0 +1,267 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Fraunces", Georgia, serif;
+  --font-body: "Literata", Georgia, serif;
+  --color-paper: var(--c-paper);
+  --color-card: var(--c-card);
+  --color-ink: var(--c-ink);
+  --color-ink2: var(--c-ink2);
+  --color-line: var(--c-line);
+  --color-accent: var(--c-accent);
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex justify-center items-center gap-2 px-5 py-2.5 rounded-full font-medium text-sm transition-all duration-200 cursor-pointer select-none;
+  }
+  .btn-p {
+    @apply bg-ink hover:opacity-85 text-paper;
+  }
+  .btn-o {
+    @apply border border-line hover:border-ink text-ink;
+  }
+  .btn-a {
+    @apply bg-accent hover:opacity-90 text-white;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1.5 px-3.5 py-1.5 border border-line hover:border-ink rounded-full text-[13px] text-ink2 hover:text-ink transition-colors cursor-pointer select-none;
+  }
+  .chip-on {
+    @apply bg-ink border-ink text-paper hover:text-paper;
+  }
+  .inp {
+    @apply w-full rounded-xl border border-line bg-card px-4 py-2.5 text-sm text-ink outline-none placeholder:text-ink2/60 focus:border-ink transition-colors;
+  }
+  .kbd {
+    @apply px-1.5 py-0.5 border border-line rounded-md font-medium text-[11px] text-ink2;
+  }
+  .card {
+    @apply bg-card border border-line rounded-2xl;
+  }
+  .lbl {
+    @apply text-ink2 text-xs uppercase tracking-[0.25em];
+  }
+}
+
+[data-theme="terang"] {
+  --c-paper: #f7f3ea;
+  --c-card: #fffdf6;
+  --c-ink: #1a1815;
+  --c-ink2: #6e675b;
+  --c-line: #e4dccb;
+  --c-accent: #b3402a;
+}
+[data-theme="sepia"] {
+  --c-paper: #e9dcc0;
+  --c-card: #f3ead3;
+  --c-ink: #3a3021;
+  --c-ink2: #7c6f55;
+  --c-line: #d4c4a0;
+  --c-accent: #9c3d22;
+}
+[data-theme="gelap"] {
+  --c-paper: #151310;
+  --c-card: #1e1b16;
+  --c-ink: #eae3d3;
+  --c-ink2: #988f7e;
+  --c-line: #332e24;
+  --c-accent: #d0654e;
+}
+
+html,
+body {
+  background: var(--c-paper);
+}
+body {
+  font-family: var(--font-body);
+  color: var(--c-ink);
+}
+::selection {
+  background: color-mix(in srgb, var(--c-accent) 24%, transparent);
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--c-line) transparent;
+}
+
+/* ---- tipografi reader ---- */
+.read {
+  font-size: var(--rfs, 18px);
+}
+.read p {
+  margin: 0 0 1.3em;
+  line-height: 1.85;
+  text-wrap: pretty;
+}
+.read .wd {
+  cursor: pointer;
+  border-radius: 2px;
+  transition: background 0.15s;
+}
+.read .wd:hover {
+  background: color-mix(in srgb, var(--c-accent) 14%, transparent);
+}
+.read .wn {
+  cursor: pointer;
+  text-decoration: underline dotted
+    color-mix(in srgb, var(--c-accent) 65%, transparent);
+  text-underline-offset: 4px;
+}
+.read .tl-item {
+  position: relative;
+  padding-left: 4.5rem;
+  margin-bottom: 2.2rem;
+}
+.read .tl-item::before {
+  content: attr(data-y);
+  position: absolute;
+  left: 0;
+  top: 0.2em;
+  font-family: var(--font-display);
+  font-weight: 600;
+  color: var(--c-accent);
+}
+.read .tl-item::after {
+  content: "";
+  position: absolute;
+  left: 3.2rem;
+  top: 0.5em;
+  bottom: -0.6em;
+  width: 1px;
+  background: var(--c-line);
+}
+.read .tl-item:last-child::after {
+  display: none;
+}
+.verse-wrap p.verse {
+  font-family: var(--font-display);
+  font-style: italic;
+  line-height: 2.1;
+  margin: 0 0 0.4em;
+}
+mark {
+  background: color-mix(in srgb, var(--c-accent) 22%, transparent);
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 2px;
+}
+.fadein {
+  animation: fi 0.45s ease both;
+}
+@keyframes fi {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+input[type="range"] {
+  accent-color: var(--c-accent);
+}
+
+.read .tl-item::before {
+  color: var(--c-ink2);
+}
+.read .tl-item.on::before {
+  color: var(--c-accent);
+}
+.read .tl-txt {
+  color: var(--c-ink2);
+  transition: color 0.3s;
+}
+.read .tl-item.on .tl-txt {
+  color: var(--c-ink);
+}
+.lambat-snap {
+  scroll-snap-align: start;
+}
+/* ---- blok markdown reader ---- */
+.read h2 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.35em;
+  margin: 1.7em 0 0.6em;
+  line-height: 1.25;
+}
+.read h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.12em;
+  margin: 1.4em 0 0.5em;
+}
+.read ul {
+  margin: 0 0 1.3em 1.25em;
+  padding: 0;
+}
+.read li {
+  list-style: disc;
+  margin: 0.35em 0;
+  line-height: 1.75;
+}
+.read pre {
+  background: var(--c-card);
+  border: 1px solid var(--c-line);
+  border-radius: 12px;
+  padding: 1em 1.2em;
+  overflow-x: auto;
+  font-size: 0.85em;
+  line-height: 1.6;
+  margin: 0 0 1.3em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: pre;
+}
+.read code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.88em;
+  background: color-mix(in srgb, var(--c-ink) 8%, transparent);
+  padding: 0.1em 0.35em;
+  border-radius: 5px;
+}
+.read pre code {
+  background: none;
+  padding: 0;
+  font-size: 1em;
+}
+.read table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 1.4em;
+  font-size: 0.9em;
+}
+.read th,
+.read td {
+  border: 1px solid var(--c-line);
+  padding: 0.5em 0.7em;
+  text-align: left;
+  vertical-align: top;
+}
+.read th {
+  background: color-mix(in srgb, var(--c-line) 40%, transparent);
+  font-family: var(--font-display);
+}
+.read blockquote {
+  border-left: 3px solid var(--c-accent);
+  padding: 0.2em 0 0.2em 1.2em;
+  margin: 1.4em 0;
+  color: var(--c-ink2);
+}
+.read blockquote p {
+  font-style: italic;
+}
+.read blockquote ul {
+  margin: 0.4em 0 0.3em 1.1em;
+}
+.read blockquote li {
+  list-style: disc;
+  font-style: normal;
+  line-height: 1.75;
+}
+.read blockquote.quote-list {
+  background: color-mix(in srgb, var(--c-accent) 5%, transparent);
+  border-radius: 0 12px 12px 0;
+  padding: 0.9em 1.2em 0.9em 1.2em;
+}
