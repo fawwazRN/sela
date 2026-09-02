@@ -5,7 +5,6 @@ import { BOOKS } from "../data/books";
 const Ctx = createContext(null);
 export const useApp = () => useContext(Ctx);
 
-/* ====== ADMIN (disamarkan dgn hash) ====== */
 const fnv1a = (s) => {
   let h = 0x811c9dc5;
   for (let i = 0; i < s.length; i++) {
@@ -14,12 +13,12 @@ const fnv1a = (s) => {
   }
   return "h" + h.toString(36);
 };
-const ADMIN_HASHES = ["GANTI_DENGAN_HASH"];
-const PENERBIT_RESMI = "Tim Sera";
 
-// di dalam AppProvider, ganti baris isAdmin:
-const isAdmin =
-  !!user && ADMIN_HASHES.includes(fnv1a((user.email || "").toLowerCase()));
+const ADMIN_HASHES = [
+  "h1b941zk", // ← WAJIB DIGANTI dengan hasil dari console
+];
+
+export const PENERBIT_RESMI = "Tim Sera";
 
 export function AppProvider({ children }) {
   const [user, setUser] = useState(() => LS("user"));
@@ -33,7 +32,7 @@ export function AppProvider({ children }) {
   const [readlog, setReadlog] = useState(() => LS("readlog") || {});
   const [finished, setFinished] = useState(() => LS("finished") || {});
   const [customBooks, setCustomBooks] = useState(() => LS("customBooks") || []);
-  const [hiddenIds, setHiddenIds] = useState(() => LS("hiddenIds") || []); // buku bawaan yang dihapus admin
+  const [hiddenIds, setHiddenIds] = useState(() => LS("hiddenIds") || []);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -48,9 +47,9 @@ export function AppProvider({ children }) {
   useEffect(() => SV("customBooks", customBooks), [customBooks]);
   useEffect(() => SV("hiddenIds", hiddenIds), [hiddenIds]);
 
-  /* admin dicek dari email — akun lama pun otomatis kena */
+  /* admin dicek dari hash email — akun lama pun otomatis kena */
   const isAdmin =
-    !!user && ADMIN_EMAILS.includes((user.email || "").toLowerCase());
+    !!user && ADMIN_HASHES.includes(fnv1a((user.email || "").toLowerCase()));
 
   const login = (name, email) => {
     const u = { id: uid(), name, email };
