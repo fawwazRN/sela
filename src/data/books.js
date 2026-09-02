@@ -120,11 +120,11 @@ export const BOOKS = [
         isi: [
           {
             t: "p",
-            v: "Pada suatu malam yang sangat sunyi, si {Kancil} berjalan di tepi hutan. Langit cerah, {rembulan} purnama bersinar terang.",
+            v: "Pada suatu malam yang sangat sunyi, si {Kancil} berjalan di tepi hutan. Langit cerah, rembulan purnama bersinar terang.",
           },
           {
             t: "p",
-            v: "Tiba-tiba {hujan} rintik-rintik turun. Kancil berlari mencari tempat berteduh — dan menemukan lubang besar di tanah.",
+            v: "Tiba-tiba hujan rintik-rintik turun. Kancil berlari mencari tempat berteduh — dan menemukan lubang besar di tanah.",
           },
         ],
         ringkasan: null,
@@ -218,7 +218,7 @@ export const BOOKS = [
           },
           {
             t: "p",
-            v: '"Kamu mau tahu soal {kudeta} tahun lalu?" suara itu pelan, nyaris berbisik. "Datang sendiri. Jangan pakai telepon lagi."',
+            v: '"Kamu mau tahu soal kudeta tahun lalu?" suara itu pelan, nyaris berbisik. "Datang sendiri. Jangan pakai telepon lagi."',
           },
           {
             t: "p",
