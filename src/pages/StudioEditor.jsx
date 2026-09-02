@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { Navigate, useParams, Link } from "react-router";
-import { useApp, ADMIN_EMAILS, PENERBIT_RESMI } from "../context/AppContext";
+import { useApp, PENERBIT_RESMI } from "../context/AppContext";
 import { G2M, MODE, GENRES_LIST } from "../data/books";
 import ContentRenderer from "../components/reader/ContentRenderer";
 import { mdToBlocks } from "../lib/markdown";
@@ -72,9 +72,7 @@ export default function StudioEditor() {
   const [pub, setPub] = useState(false);
   const [pane, setPane] = useState("both"); // mobile: both | tulis | lihat
   const [penulis, setPenulis] = useState(() =>
-    user?.email && ADMIN_EMAILS.includes(user.email.toLowerCase())
-      ? PENERBIT_RESMI
-      : user?.name || "",
+    isAdmin ? PENERBIT_RESMI : user?.name || "",
   );
   useEffect(() => {
     setPub(false);

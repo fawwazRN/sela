@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useApp, ADMIN_EMAILS, PENERBIT_RESMI } from "../context/AppContext";
+import { useApp } from "../context/AppContext";
 
 const THEMES = [
   ["terang", "Terang", "#F7F3EA"],
