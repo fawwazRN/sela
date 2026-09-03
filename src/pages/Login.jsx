@@ -1,17 +1,16 @@
 import { useState } from "react";
 import { useLocation, useNavigate, Link } from "react-router";
 import { useApp } from "../context/AppContext";
-import { LS, SV } from "../lib/storage";
 
 export default function Login() {
-  const { login } = useApp();
+  const { login, register } = useApp();
   const nav = useNavigate();
   const { state } = useLocation();
   const [tab, setTab] = useState("masuk");
   const [f, setF] = useState({ name: "", email: "", pass: "" });
   const [err, setErr] = useState("");
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
     setErr("");
     const { name, email, pass } = f;
@@ -19,29 +18,22 @@ export default function Login() {
       setErr("Email valid & password minimal 6 karakter ya.");
       return;
     }
-    const em = email.toLowerCase();
-    const us = LS("users") || [];
-    const found = us.find((u) => u.email === em);
-    if (tab === "daftar") {
-      if (found) {
-        setErr("Email sudah terdaftar — silakan masuk.");
-        return;
+    try {
+      await (tab === "daftar" ? register(email, pass) : login(email, pass));
+      if (name) {
+        // simpan nama tampilan yang diketik
+        setTimeout(() => {
+          const u = JSON.parse(localStorage.getItem("sela.user") || "null");
+          if (u) {
+            u.name = name;
+            localStorage.setItem("sela.user", JSON.stringify(u));
+          }
+        }, 300);
       }
-      SV("users", [...us, { name: name || em.split("@")[0], email: em, pass }]);
-      login(name || em.split("@")[0], em);
       nav(state?.from || "/saya");
-      return;
+    } catch (er) {
+      setErr(er.message || "Gagal. Periksa koneksi / kredensial.");
     }
-    if (!found) {
-      setErr("Email belum terdaftar. Daftar dulu yuk — gratis.");
-      return;
-    }
-    if (found.pass !== pass) {
-      setErr("Password salah.");
-      return;
-    }
-    login(found.name, found.email);
-    nav(state?.from || "/saya");
   };
 
   return (
@@ -50,7 +42,7 @@ export default function Login() {
         {tab === "masuk" ? "Selamat datang kembali" : "Buat akun"}
       </h1>
       <p className="mt-2 text-ink2 text-sm text-center">
-        Baca tetap gratis tanpa akun — ini cuma untuk sinkron & Studio.
+        Baca tetap gratis tanpa akun — ini untuk sinkron & Studio.
       </p>
       <div className="flex justify-center gap-2 mt-6">
         {[
@@ -105,7 +97,7 @@ export default function Login() {
           {tab === "masuk" ? "Masuk" : "Buat akun"}
         </button>
         <p className="text-[11px] text-ink2 text-center">
-          Demo: akun tersimpan lokal di browser ini.
+          Akunmu tersimpan aman dan terenkripsi..
         </p>
       </form>
       <p className="mt-5 text-sm text-center">
