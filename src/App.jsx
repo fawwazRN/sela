@@ -18,6 +18,9 @@ import StudioList from "./pages/StudioList";
 import StudioEditor from "./pages/StudioEditor";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
+import Tutorial from "./pages/Tutorial";
+import Glosarium from "./pages/Glosarium";
+import AdminPanel from "./pages/AdminPanel";
 
 export default function App() {
   const { pathname } = useLocation();
@@ -43,6 +46,9 @@ export default function App() {
         <Route path="/studio/:id" element={<StudioEditor />} />
         <Route path="/masuk" element={<Login />} />
         <Route path="*" element={<NotFound />} />
+        <Route path="/tutorial" element={<Tutorial />} />
+        <Route path="/glosarium" element={<Glosarium />} />
+        <Route path="/admin" element={<AdminPanel />} />
       </Route>
 
       {/* Reader — chrome-less, UI menghilang */}

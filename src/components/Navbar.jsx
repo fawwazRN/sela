@@ -3,11 +3,12 @@ import { Link, NavLink, useNavigate } from "react-router";
 import { useApp } from "../context/AppContext";
 
 export default function Navbar({ onSearch }) {
-  const { user, logout } = useApp();
+  const { user, logout, isAdmin } = useApp();
   const [open, setOpen] = useState(false);
   const [menu, setMenu] = useState(false);
   const nav = useNavigate();
   const ref = useRef(null);
+
   useEffect(() => {
     const f = (e) => {
       if (ref.current && !ref.current.contains(e.target)) setMenu(false);
@@ -15,13 +16,16 @@ export default function Navbar({ onSearch }) {
     document.addEventListener("click", f);
     return () => document.removeEventListener("click", f);
   }, []);
+
   const cls = ({ isActive }) =>
     `text-sm ${isActive ? "text-ink font-medium" : "text-ink2 hover:text-ink"}`;
   const links = [
     { to: "/jelajah", label: "Jelajah" },
+    { to: "/glosarium", label: "Glosarium" },
     { to: "/impor", label: "Impor" },
     ...(user ? [{ to: "/studio", label: "Studio" }] : []),
   ];
+
   return (
     <header className="top-0 z-40 sticky bg-paper/90 backdrop-blur border-line border-b">
       <div className="flex items-center gap-5 mx-auto px-5 max-w-6xl h-14">
@@ -43,13 +47,26 @@ export default function Navbar({ onSearch }) {
           <div className="relative" ref={ref}>
             <button
               onClick={() => setMenu((m) => !m)}
-              className="place-items-center grid bg-accent rounded-full w-9 h-9 font-display font-semibold text-white">
+              className="relative place-items-center grid bg-accent rounded-full w-9 h-9 font-display font-semibold text-white"
+              title={isAdmin ? "Admin" : undefined}>
               {user.name[0].toUpperCase()}
+              {isAdmin && (
+                <span className="-top-1 -right-1 absolute place-items-center grid bg-ink border border-paper rounded-full w-4 h-4 text-[9px] text-paper">
+                  ★
+                </span>
+              )}
             </button>
             {menu && (
               <div className="right-0 absolute shadow-xl mt-2 p-1.5 w-48 card fadein">
                 <div className="px-3 py-2">
-                  <p className="font-medium text-sm truncate">{user.name}</p>
+                  <p className="font-medium text-sm truncate">
+                    {user.name}
+                    {isAdmin && (
+                      <span className="ml-1 font-semibold text-[10px] text-accent">
+                        · ADMIN
+                      </span>
+                    )}
+                  </p>
                   <p className="text-ink2 text-xs truncate">{user.email}</p>
                 </div>
                 <div className="bg-line h-px" />
@@ -65,6 +82,14 @@ export default function Navbar({ onSearch }) {
                   className="block hover:bg-line/50 px-3 py-2 rounded-lg text-sm">
                   Pengaturan
                 </Link>
+                {isAdmin && (
+                  <Link
+                    to="/admin"
+                    onClick={() => setMenu(false)}
+                    className="block hover:bg-line/50 px-3 py-2 rounded-lg text-sm">
+                    Panel Admin ★
+                  </Link>
+                )}
                 <button
                   onClick={() => {
                     logout();

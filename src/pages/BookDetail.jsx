@@ -7,7 +7,7 @@ import { fmtMin } from "../lib/utils";
 
 export default function BookDetail() {
   const { slug } = useParams();
-  const { getBook, progress, shelf, toggleShelf, isAdmin, removeBook } =
+  const { getBook, progress, shelf, toggleShelf, isAdmin, removeBook, user } =
     useApp();
   const book = getBook(slug);
   const nav = useNavigate();
@@ -15,6 +15,7 @@ export default function BookDetail() {
   const p = progress[book.id];
   const m = MODE[G2M[book.genre] || "imersi"];
   const saved = shelf.simpan.includes(book.id);
+  const bolehHapus = isAdmin || (user && book.owner === user.email);
 
   return (
     <div className="mx-auto px-5 pt-10 max-w-4xl fadein">
@@ -50,7 +51,7 @@ export default function BookDetail() {
             <button onClick={() => toggleShelf(book.id)} className="btn btn-o">
               {saved ? "★ Tersimpan" : "☆ Simpan"}
             </button>
-            {isAdmin && (
+            {bolehHapus && (
               <button
                 onClick={() => {
                   if (confirm(`Hapus "${book.judul}" dari katalog?`)) {

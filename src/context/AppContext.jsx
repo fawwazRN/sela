@@ -6,21 +6,10 @@ import { supabase, HAS_DB } from "../lib/supabase";
 const Ctx = createContext(null);
 export const useApp = () => useContext(Ctx);
 
-/* hash utk tampilan tombol admin di UI (keamanan sebenarnya ada di RLS Supabase) */
-const fnv1a = (s) => {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = (h * 0x01000193) >>> 0;
-  }
-  return "h" + h.toString(36);
-};
-const ADMIN_HASHES = ["GANTI_HASH_EMAIL_KAMU"]; // hasil dari console seperti sebelumnya
-
-export const PENERBIT_RESMI = "Tim Sera";
+export const PENERBIT_RESMI = "Tim Sela";
 
 export function AppProvider({ children }) {
-  /* ===== data pribadi (lokal, per perangkat) ===== */
+  /* ===== data pribadi (lokal) ===== */
   const [user, setUser] = useState(() => LS("user"));
   const [theme, setTheme] = useState(() => LS("theme") || "terang");
   const [progress, setProgress] = useState(() => LS("progress") || {});
@@ -32,11 +21,12 @@ export function AppProvider({ children }) {
   const [readlog, setReadlog] = useState(() => LS("readlog") || {});
   const [finished, setFinished] = useState(() => LS("finished") || {});
 
-  /* ===== data global (Supabase) ===== */
-  const [customBooks, setCustomBooks] = useState(() => LS("customBooks") || []); // lokal (non-admin)
-  const [dbBooks, setDbBooks] = useState(() => LS("dbBooks") || []); // global (admin)
+  /* ===== data global ===== */
+  const [customBooks, setCustomBooks] = useState(() => LS("customBooks") || []);
+  const [dbBooks, setDbBooks] = useState(() => LS("dbBooks") || []);
   const [hiddenIds, setHiddenIds] = useState(() => LS("hiddenIds") || []);
   const [glos, setGlos] = useState(() => LS("glos") || DIK);
+  const [isAdmin, setIsAdmin] = useState(false); // dari tabel `admins` (server)
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -53,10 +43,7 @@ export function AppProvider({ children }) {
   useEffect(() => SV("hiddenIds", hiddenIds), [hiddenIds]);
   useEffect(() => SV("glos", glos), [glos]);
 
-  const isAdmin =
-    !!user && ADMIN_HASHES.includes(fnv1a((user.email || "").toLowerCase()));
-
-  /* ===== muat data global + sesi login ===== */
+  /* ===== muat data global ===== */
   useEffect(() => {
     if (!HAS_DB) return;
     (async () => {
@@ -69,30 +56,40 @@ export function AppProvider({ children }) {
           .eq("key", "hidden_ids")
           .maybeSingle(),
       ]);
-      if (b.data) {
-        const arr = b.data.map((r) => r.data);
-        setDbBooks(arr);
-      }
+      if (b.data) setDbBooks(b.data.map((r) => r.data));
       if (g.data && g.data.length) {
         const o = {};
-        g.data.forEach((r) => (o[r.kata] = r.arti));
+        g.data.forEach((r) => (o[r.kata.toLowerCase()] = r.arti));
         setGlos(o);
       }
       if (m.data) setHiddenIds(m.data.value || []);
     })();
   }, []);
 
+  /* ===== sesi login + status admin ===== */
+  const cekAdmin = async (email) => {
+    if (!HAS_DB || !email) {
+      setIsAdmin(false);
+      return;
+    }
+    const { data } = await supabase
+      .from("admins")
+      .select("email")
+      .eq("email", email)
+      .maybeSingle();
+    setIsAdmin(!!data);
+  };
+
   const applyUser = (su) => {
+    const lama = LS("user");
     const u = {
       id: su.id,
       email: su.email,
-      name:
-        LS("user")?.email === su.email
-          ? LS("user").name
-          : su.email.split("@")[0],
+      name: lama?.email === su.email ? lama.name : su.email.split("@")[0],
     };
     setUser(u);
     SV("user", u);
+    cekAdmin(su.email);
   };
 
   useEffect(() => {
@@ -104,6 +101,7 @@ export function AppProvider({ children }) {
       if (s) applyUser(s.user);
       else {
         setUser(null);
+        setIsAdmin(false);
         RM("user");
       }
     });
@@ -132,7 +130,27 @@ export function AppProvider({ children }) {
   const logout = async () => {
     if (HAS_DB) await supabase.auth.signOut();
     setUser(null);
+    setIsAdmin(false);
     RM("user");
+  };
+
+  /* ===== manajemen admin (hanya admin, dijaga RLS) ===== */
+  const listAdmin = async () => {
+    const { data, error } = await supabase.from("admins").select("email");
+    if (error) throw error;
+    return (data || []).map((d) => d.email);
+  };
+  const addAdmin = async (email) => {
+    if (!isAdmin) return;
+    const e = (email || "").trim().toLowerCase();
+    if (!e.includes("@")) throw new Error("Email tidak valid.");
+    const { error } = await supabase.from("admins").insert({ email: e });
+    if (error) throw error;
+  };
+  const removeAdmin = async (email) => {
+    if (!isAdmin) return;
+    const { error } = await supabase.from("admins").delete().eq("email", email);
+    if (error) throw error;
   };
 
   /* ===== baca pribadi ===== */
@@ -176,19 +194,31 @@ export function AppProvider({ children }) {
   };
   const removeDraft = (id) => setDrafts((ds) => ds.filter((d) => d.id !== id));
 
-  /* ===== buku global (admin) / lokal (user biasa) ===== */
+  /* ===== buku global (login wajib; server cek: admin bebas, user = miliknya) ===== */
   const addCustomBook = (b) => {
-    setCustomBooks((bs) => [b, ...bs.filter((x) => x.slug !== b.slug)]);
-    if (isAdmin && HAS_DB && user)
+    const withOwner = { ...b, owner: user?.email || null };
+    setCustomBooks((bs) => [
+      withOwner,
+      ...bs.filter((x) => x.slug !== withOwner.slug),
+    ]);
+    setDbBooks((bs) => [
+      withOwner,
+      ...bs.filter((x) => x.slug !== withOwner.slug),
+    ]);
+    if (user && HAS_DB)
       supabase
         .from("books")
-        .upsert({ slug: b.slug, data: b })
+        .upsert({
+          slug: withOwner.slug,
+          data: withOwner,
+          owner: withOwner.owner,
+        })
         .then(({ error }) => error && gagal(error));
   };
   const removeCustomBook = (slug) => {
     setCustomBooks((bs) => bs.filter((b) => b.slug !== slug));
     setDbBooks((bs) => bs.filter((b) => b.slug !== slug));
-    if (isAdmin && HAS_DB && user)
+    if (user && HAS_DB)
       supabase
         .from("books")
         .delete()
@@ -202,40 +232,41 @@ export function AppProvider({ children }) {
     if (!b) return;
     if (b.custom) removeCustomBook(slug);
     else {
+      if (!isAdmin) return; // buku bawaan hanya bisa disembunyikan admin
       setHiddenIds((h) => {
         const next = h.includes(b.id) ? h : [...h, b.id];
-        if (isAdmin && HAS_DB && user)
-          supabase
-            .from("meta")
-            .upsert({ key: "hidden_ids", value: next })
-            .then(({ error }) => error && gagal(error));
+        supabase
+          .from("meta")
+          .upsert({ key: "hidden_ids", value: next })
+          .then(({ error }) => error && gagal(error));
         return next;
       });
     }
   };
   const restoreBuiltin = () => {
+    if (!isAdmin) return;
     setHiddenIds([]);
-    if (isAdmin && HAS_DB && user)
-      supabase
-        .from("meta")
-        .upsert({ key: "hidden_ids", value: [] })
-        .then(({ error }) => error && gagal(error));
+    supabase
+      .from("meta")
+      .upsert({ key: "hidden_ids", value: [] })
+      .then(({ error }) => error && gagal(error));
   };
 
-  /* ===== glosarium global ===== */
+  /* ===== glosarium: semua bisa tambah; edit/hapus admin (dijaga RLS) ===== */
   const addGlos = async (kata, arti) => {
     const k = (kata || "").trim().toLowerCase();
     const v = (arti || "").trim();
     if (!k || !v) return;
     setGlos((g) => ({ ...g, [k]: v }));
-    if (isAdmin && HAS_DB && user) {
+    if (HAS_DB) {
       const { error } = await supabase
         .from("glossary")
-        .upsert({ kata: k, arti: v });
+        .upsert({ kata: k, arti: v, oleh: user?.email || "Tamu" });
       if (error) gagal(error);
     }
   };
   const removeGlos = async (kata) => {
+    if (!isAdmin) return;
     const k = (kata || "").trim().toLowerCase();
     if (!k) return;
     setGlos((g) => {
@@ -243,21 +274,17 @@ export function AppProvider({ children }) {
       delete c[k];
       return c;
     });
-    if (isAdmin && HAS_DB && user) {
-      const { error } = await supabase.from("glossary").delete().eq("kata", k);
-      if (error) gagal(error);
-    }
+    const { error } = await supabase.from("glossary").delete().eq("kata", k);
+    if (error) gagal(error);
   };
   const restoreGlos = async () => {
+    if (!isAdmin) return;
     setGlos((g) => ({ ...g, ...DIK }));
-    if (isAdmin && HAS_DB && user) {
-      const rows = Object.entries(DIK).map(([kata, arti]) => ({ kata, arti }));
-      const { error } = await supabase.from("glossary").upsert(rows);
-      if (error) gagal(error);
-    }
+    const rows = Object.entries(DIK).map(([kata, arti]) => ({ kata, arti }));
+    const { error } = await supabase.from("glossary").upsert(rows);
+    if (error) gagal(error);
   };
 
-  /* katalog gabungan: bawaan → global(admin) → lokal(user) */
   const books = useMemo(() => {
     const m = new Map();
     [...BOOKS, ...dbBooks, ...customBooks].forEach((b) => {
@@ -275,6 +302,9 @@ export function AppProvider({ children }) {
         register,
         logout,
         isAdmin,
+        listAdmin,
+        addAdmin,
+        removeAdmin,
         theme,
         setTheme,
         progress,

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate, Link } from "react-router";
-import { useApp } from "../context/AppContext";
+import { useApp, PENERBIT_RESMI } from "../context/AppContext";
 import { uid } from "../lib/storage";
 import { GENRES_LIST, G2M, MODE } from "../data/books";
 import { mdToBlocks, splitChapters } from "../lib/markdown";
@@ -28,13 +28,14 @@ Isi bab dua di sini.
 `;
 
 export default function ImportPage() {
-  const { addCustomBook, books, removeCustomBook, saveDraft } = useApp();
+  const { addCustomBook, books, removeCustomBook, saveDraft, isAdmin, user } =
+    useApp();
   const nav = useNavigate();
   const [genre, setGenre] = useState("Umum");
   const [splitter, setSplitter] = useState("otomatis");
-  const [st, setSt] = useState("idle"); // idle | parsing | done | error
+  const [st, setSt] = useState("idle");
   const [msg, setMsg] = useState("");
-  const [text, setText] = useState(null); // isi .md mentah
+  const [text, setText] = useState(null);
   const [judul, setJudul] = useState("");
 
   const parsed = useMemo(() => {
@@ -44,7 +45,9 @@ export default function ImportPage() {
   }, [text, splitter]);
 
   const mode = MODE[G2M[genre] || "imersi"];
-  const imports = books.filter((b) => b.custom === "Impor");
+  const imports = books.filter(
+    (b) => b.custom && (isAdmin || b.owner === user?.email),
+  );
 
   const parse = async (file) => {
     setSt("parsing");
@@ -78,7 +81,7 @@ export default function ImportPage() {
       id: "imp-" + uid(),
       slug,
       judul: judul || "Buku Imporan",
-      penulis: "Imporan kamu",
+      penulis: isAdmin ? PENERBIT_RESMI : user?.name || "Imporan kamu",
       genre,
       durasi: Math.max(
         5,
@@ -90,7 +93,7 @@ export default function ImportPage() {
         ),
       ),
       desc: `Diimpor dari Markdown · ${parsed.chapters.length} bab.`,
-      custom: "Impor",
+      custom: isAdmin ? PENERBIT_RESMI : "Impor",
       bab: parsed.chapters.map((c) => ({
         judul: c.judul,
         isi: mdToBlocks(c.raw),
@@ -218,20 +221,10 @@ export default function ImportPage() {
           <div className="flex gap-2">
             <button onClick={save} className="flex-1 btn btn-p">
               Tambahkan ke rak & buka →
+              {isAdmin && (
+                <span className="opacity-70"> (sebagai {PENERBIT_RESMI})</span>
+              )}
             </button>
-            <button
-              onClick={
-                editInStudio({
-                  bab: parsed.chapters.map((c) => ({
-                    judul: c.judul,
-                    raw: c.raw,
-                  })),
-                  judul,
-                  genre,
-                }) && undefined
-              }
-              className="hidden"
-            />
           </div>
           <button
             onClick={() => {
@@ -256,7 +249,7 @@ export default function ImportPage() {
                 <Link to={`/buku/${b.slug}`} className="flex-1 min-w-0">
                   <p className="font-medium text-sm truncate">{b.judul}</p>
                   <p className="text-ink2 text-xs">
-                    {b.bab.length} bab · {b.genre}
+                    {b.bab.length} bab · {b.penulis}
                   </p>
                 </Link>
                 <button

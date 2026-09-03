@@ -1,6 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { DIK } from "../../data/books";
+import { useApp } from "../../context/AppContext";
 import { inlineTokens, extractNames } from "../../lib/markdown";
+
+/* cari arti glosarium: huruf besar/kecil diabaikan + coba lepas akhiran umum */
+function cariArti(glos, w) {
+  const k = (w || "").toLowerCase();
+  if (glos[k]) return glos[k];
+  for (const sf of ["nya", "lah", "kah", "ku", "mu"]) {
+    if (
+      k.length > sf.length + 2 &&
+      k.endsWith(sf) &&
+      glos[k.slice(0, -sf.length)]
+    )
+      return glos[k.slice(0, -sf.length)];
+  }
+  return undefined;
+}
 
 function Words({ s, bold, italic, code }) {
   const parts = s.split(/(\s+)/).filter(Boolean);
@@ -153,6 +168,7 @@ function Quote({ v }) {
 }
 
 export default function ContentRenderer({ book, chap, mode, onTap }) {
+  const { glos } = useApp();
   const c = book.bab[chap];
 
   const blocks = useMemo(() => {
@@ -202,7 +218,7 @@ export default function ContentRenderer({ book, chap, mode, onTap }) {
           onTap({
             rect: r,
             word: t.textContent,
-            arti: DIK[t.dataset.w],
+            arti: cariArti(glos, t.dataset.w),
             para: t.closest("p")?.dataset?.raw || "",
           });
         }

@@ -12,6 +12,7 @@ import SettingsDrawer from "../components/reader/SettingsDrawer";
 export default function Reader() {
   const { slug } = useParams();
   const {
+    user, // ← INI yang hilang di versimu (bug `user is not defined`)
     books,
     progress,
     saveProgress,
@@ -25,14 +26,27 @@ export default function Reader() {
   const book = books.find((b) => b.slug === slug);
   const saved = book ? progress[book.id] : null;
 
-  const [chap, setChap] = useState(() =>
-    book
-      ? Math.min(
-          sp.get("bab") ? +sp.get("bab") : (saved?.chap ?? 0),
-          book.bab.length - 1,
-        )
-      : 0,
-  );
+  /* tamu: selalu mulai bab 1; login: lanjutkan posisi terakhir */
+  const [chap, setChap] = useState(() => {
+    if (!user) return 0;
+    return Math.min(
+      sp.get("bab") ? +sp.get("bab") : (saved?.chap ?? 0),
+      book.bab.length - 1,
+    );
+  });
+  const [gate, setGate] = useState(false);
+
+  /* gerbang tamu: bab > 1 butuh login */
+  const mintaGanti = (c) => {
+    if (!user && c > 0) {
+      setGate(true);
+      window.scrollTo(0, 0);
+      return;
+    }
+    setGate(false);
+    setChap(c);
+  };
+
   const [mode, setMode] = useState(() =>
     book ? G2M[book.genre] || "imersi" : "imersi",
   );
@@ -61,6 +75,7 @@ export default function Reader() {
     };
   }, [mode]);
 
+  /* masuk rak "sedang dibaca" */
   useEffect(() => {
     if (!book) return;
     if (!shelf.baca.includes(book.id) && !shelf.selesai.includes(book.id))
@@ -68,6 +83,7 @@ export default function Reader() {
     // eslint-disable-next-line
   }, [book?.id]);
 
+  /* progres scroll + simpan berkala */
   useEffect(() => {
     if (!book) return;
     let lastSave = 0;
@@ -87,14 +103,17 @@ export default function Reader() {
     // eslint-disable-next-line
   }, [book?.id, chap]);
 
+  /* ganti bab → ke atas, reset status */
   useEffect(() => {
     window.scrollTo(0, 0);
     setDone(false);
     setPop(null);
+    setGate(false);
   }, [chap]);
 
+  /* pulihkan posisi baca — hanya untuk yang login */
   useEffect(() => {
-    if (!book || restored.current) return;
+    if (!book || !user || restored.current) return;
     restored.current = true;
     const p = progress[book.id];
     if (p && !sp.get("bab") && p.chap === chap && p.pct > 3 && p.pct < 98) {
@@ -110,6 +129,7 @@ export default function Reader() {
     // eslint-disable-next-line
   }, []);
 
+  /* hitung waktu baca */
   useEffect(() => {
     const iv = setInterval(() => {
       if (document.visibilityState === "visible") logRead(15);
@@ -182,7 +202,7 @@ export default function Reader() {
         show={show && !pop}
         book={book}
         chap={chap}
-        setChap={setChap}
+        setChap={mintaGanti}
         pct={pct}
         onSettings={() => setSetOpen(true)}
         mode={mode}
@@ -191,18 +211,47 @@ export default function Reader() {
       />
       <Minimap pct={pct} onSeek={seek} />
       <article className="px-5 pt-24">
-        <ContentRenderer book={book} chap={chap} mode={mode} onTap={onTap} />
-        <EndOfChapter
-          book={book}
-          chap={chap}
-          done={done}
-          onNext={() => setChap((c) => Math.min(c + 1, book.bab.length - 1))}
-          onFinish={() => {
-            finishBook(book.id);
-            setDone(true);
-            saveProgress(book.id, chap, 100);
-          }}
-        />
+        {gate ? (
+          /* ===== GERBANG TAMU ===== */
+          <div className="mx-auto py-20 max-w-md text-center fadein">
+            <p className="text-5xl">🔒</p>
+            <h2 className="mt-4 font-display font-bold text-2xl leading-snug">
+              Bab selanjutnya untuk pembaca terdaftar
+            </h2>
+            <p className="mt-3 text-ink2 text-sm leading-relaxed">
+              Gratis, cukup satu menit. Bab 1 tetap bisa kamu baca tanpa akun.
+            </p>
+            <div className="flex justify-center gap-3 mt-7">
+              <Link to="/masuk" className="btn btn-p">
+                Masuk / Daftar
+              </Link>
+              <button onClick={() => mintaGanti(0)} className="btn btn-o">
+                Kembali ke bab 1
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <ContentRenderer
+              book={book}
+              chap={chap}
+              mode={mode}
+              onTap={onTap}
+            />
+            <EndOfChapter
+              key={chap}
+              book={book}
+              chap={chap}
+              done={done}
+              onNext={() => mintaGanti(Math.min(chap + 1, book.bab.length - 1))}
+              onFinish={() => {
+                finishBook(book.id);
+                setDone(true);
+                saveProgress(book.id, chap, 100);
+              }}
+            />
+          </>
+        )}
       </article>
       <PopoverKata
         data={pop}

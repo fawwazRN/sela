@@ -12,6 +12,7 @@ const PAGES = [
   { label: "Impor buku", to: "/impor" },
   { label: "Studio", to: "/studio" },
   { label: "Masuk", to: "/masuk" },
+  { label: "Cara buat buku (tutorial)", to: "/tutorial" },
 ];
 
 export default function CommandPalette({ open, onClose }) {
@@ -97,7 +98,9 @@ export default function CommandPalette({ open, onClose }) {
               onMouseEnter={() => setI(idx)}
               onClick={() => go(it)}
               className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-left ${idx === i ? "bg-line/60" : ""}`}>
-              <span className="w-14 !text-[10px] lbl shrink-0">{it.kind}</span>
+              <span className="w-20 text-[10px] text-ink2/70 truncate uppercase tracking-wider shrink-0">
+                {it.kind}
+              </span>
               <span className="flex-1 min-w-0">
                 <span className="block text-sm truncate">{it.label}</span>
                 {it.sub && (

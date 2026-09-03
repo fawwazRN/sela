@@ -17,6 +17,9 @@ export default function Footer() {
           <Link to="/jelajah" className="hover:text-ink">
             Jelajah
           </Link>
+          <Link to="/tutorial" className="hover:text-ink">
+            Cara buat buku
+          </Link>
           <Link to="/impor" className="hover:text-ink">
             Impor
           </Link>

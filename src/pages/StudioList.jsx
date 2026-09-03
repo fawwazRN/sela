@@ -3,13 +3,22 @@ import { useApp } from "../context/AppContext";
 import { fmtDate } from "../lib/utils";
 
 export default function StudioList() {
-  const { user, drafts, saveDraft, removeDraft, books, removeCustomBook } =
-    useApp();
+  const {
+    user,
+    drafts,
+    saveDraft,
+    removeDraft,
+    books,
+    removeCustomBook,
+    isAdmin,
+  } = useApp();
   const nav = useNavigate();
   if (!user)
     return <Navigate to="/masuk" state={{ from: "/studio" }} replace />;
 
-  const published = books.filter((b) => b.custom === "Studio");
+  const published = books.filter(
+    (b) => b.custom && (isAdmin || b.owner === user.email),
+  );
   const baru = () => {
     const id = saveDraft({
       judul: "Tanpa Judul",
