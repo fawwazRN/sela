@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router";
 import { useApp } from "../context/AppContext";
 import Cover from "../components/Cover";
-import Chat from "../components/Chat";
 import { G2M, MODE } from "../data/books";
 import NotFound from "./NotFound";
 import { fmtMin, fmtDate } from "../lib/utils";
@@ -318,11 +317,6 @@ export default function BookDetail() {
             </p>
           )}
         </div>
-      </section>
-
-      {/* ===== DISKUSI ===== */}
-      <section className="mt-8 pb-10">
-        <Chat slug={book.slug} />
       </section>
     </div>
   );
