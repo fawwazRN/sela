@@ -13,31 +13,28 @@ export function AppProvider({ children }) {
   const [user, setUser] = useState(() => LS("user"));
   const [theme, setTheme] = useState(() => LS("theme") || "terang");
   const [progress, setProgress] = useState(() => LS("progress") || {});
-  const [shelf, setShelf] = useState(
-    () => LS("shelf") || { baca: [], selesai: [], simpan: [] },
-  );
+  const [shelf, setShelf] = useState(() => LS("shelf") || { baca: [], selesai: [], simpan: [] });
   const [highlights, setHighlights] = useState(() => LS("highlights") || []);
   const [drafts, setDrafts] = useState(() => LS("drafts") || []);
   const [readlog, setReadlog] = useState(() => LS("readlog") || {});
   const [finished, setFinished] = useState(() => LS("finished") || {});
+  const [bookTime, setBookTime] = useState(() => LS("bookTime") || {}); // {bookId: detik}
 
   /* ===== data global ===== */
   const [customBooks, setCustomBooks] = useState(() => LS("customBooks") || []);
   const [dbBooks, setDbBooks] = useState(() => LS("dbBooks") || []);
   const [hiddenIds, setHiddenIds] = useState(() => LS("hiddenIds") || []);
   const [glos, setGlos] = useState(() => LS("glos") || DIK);
-  const [isAdmin, setIsAdmin] = useState(false); // dari tabel `admins` (server)
+  const [isAdmin, setIsAdmin] = useState(false);
 
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    SV("theme", theme);
-  }, [theme]);
+  useEffect(() => { document.documentElement.dataset.theme = theme; SV("theme", theme); }, [theme]);
   useEffect(() => SV("progress", progress), [progress]);
   useEffect(() => SV("shelf", shelf), [shelf]);
   useEffect(() => SV("highlights", highlights), [highlights]);
   useEffect(() => SV("drafts", drafts), [drafts]);
   useEffect(() => SV("readlog", readlog), [readlog]);
   useEffect(() => SV("finished", finished), [finished]);
+  useEffect(() => SV("bookTime", bookTime), [bookTime]);
   useEffect(() => SV("customBooks", customBooks), [customBooks]);
   useEffect(() => SV("dbBooks", dbBooks), [dbBooks]);
   useEffect(() => SV("hiddenIds", hiddenIds), [hiddenIds]);
@@ -50,17 +47,11 @@ export function AppProvider({ children }) {
       const [b, g, m] = await Promise.all([
         supabase.from("books").select("slug,data"),
         supabase.from("glossary").select("kata,arti"),
-        supabase
-          .from("meta")
-          .select("value")
-          .eq("key", "hidden_ids")
-          .maybeSingle(),
+        supabase.from("meta").select("value").eq("key", "hidden_ids").maybeSingle(),
       ]);
       if (b.data) setDbBooks(b.data.map((r) => r.data));
       if (g.data && g.data.length) {
-        const o = {};
-        g.data.forEach((r) => (o[r.kata.toLowerCase()] = r.arti));
-        setGlos(o);
+        const o = {}; g.data.forEach((r) => (o[r.kata.toLowerCase()] = r.arti)); setGlos(o);
       }
       if (m.data) setHiddenIds(m.data.value || []);
     })();
@@ -68,58 +59,33 @@ export function AppProvider({ children }) {
 
   /* ===== sesi login + status admin ===== */
   const cekAdmin = async (email) => {
-    if (!HAS_DB || !email) {
-      setIsAdmin(false);
-      return;
-    }
-    const { data } = await supabase
-      .from("admins")
-      .select("email")
-      .eq("email", email)
-      .maybeSingle();
+    if (!HAS_DB || !email) { setIsAdmin(false); return; }
+    const { data } = await supabase.from("admins").select("email").eq("email", email).maybeSingle();
     setIsAdmin(!!data);
   };
 
   const applyUser = (su) => {
     const lama = LS("user");
-    const u = {
-      id: su.id,
-      email: su.email,
-      name: lama?.email === su.email ? lama.name : su.email.split("@")[0],
-    };
-    setUser(u);
-    SV("user", u);
+    const u = { id: su.id, email: su.email, name: lama?.email === su.email ? lama.name : su.email.split("@")[0] };
+    setUser(u); SV("user", u);
     cekAdmin(su.email);
   };
 
   useEffect(() => {
     if (!HAS_DB) return;
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) applyUser(data.session.user);
-    });
+    supabase.auth.getSession().then(({ data }) => { if (data.session) applyUser(data.session.user); });
     const sub = supabase.auth.onAuthStateChange((_e, s) => {
-      if (s) applyUser(s.user);
-      else {
-        setUser(null);
-        setIsAdmin(false);
-        RM("user");
-      }
+      if (s) applyUser(s.user); else { setUser(null); setIsAdmin(false); RM("user"); }
     });
     return () => sub.data.subscription.unsubscribe();
   }, []);
 
-  const gagal = (e) => {
-    console.error(e);
-    alert("Gagal sinkron ke server: " + (e?.message || e));
-  };
+  const gagal = (e) => { console.error(e); alert("Gagal sinkron ke server: " + (e?.message || e)); };
 
   /* ===== akun ===== */
   const login = async (email, pass) => {
     if (!HAS_DB) return;
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password: pass,
-    });
+    const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
     if (error) throw error;
   };
   const register = async (email, pass) => {
@@ -129,12 +95,10 @@ export function AppProvider({ children }) {
   };
   const logout = async () => {
     if (HAS_DB) await supabase.auth.signOut();
-    setUser(null);
-    setIsAdmin(false);
-    RM("user");
+    setUser(null); setIsAdmin(false); RM("user");
   };
 
-  /* ===== manajemen admin (hanya admin, dijaga RLS) ===== */
+  /* ===== manajemen admin ===== */
   const listAdmin = async () => {
     const { data, error } = await supabase.from("admins").select("email");
     if (error) throw error;
@@ -164,17 +128,14 @@ export function AppProvider({ children }) {
       [list]: [...s[list].filter((x) => x !== bookId), bookId],
     }));
   const toggleShelf = (bookId) =>
-    setShelf((s) =>
-      s.simpan.includes(bookId)
-        ? { ...s, simpan: s.simpan.filter((x) => x !== bookId) }
-        : { ...s, simpan: [...s.simpan, bookId] },
-    );
-  const addHighlight = (h) =>
-    setHighlights((hs) => [{ id: uid(), at: today(), ...h }, ...hs]);
-  const removeHighlight = (id) =>
-    setHighlights((hs) => hs.filter((h) => h.id !== id));
-  const logRead = (sec) =>
-    setReadlog((r) => ({ ...r, [today()]: (r[today()] || 0) + sec }));
+    setShelf((s) => s.simpan.includes(bookId)
+      ? { ...s, simpan: s.simpan.filter((x) => x !== bookId) }
+      : { ...s, simpan: [...s.simpan, bookId] });
+  const addHighlight = (h) => setHighlights((hs) => [{ id: uid(), at: today(), ...h }, ...hs]);
+  const removeHighlight = (id) => setHighlights((hs) => hs.filter((h) => h.id !== id));
+  const logRead = (sec) => setReadlog((r) => ({ ...r, [today()]: (r[today()] || 0) + sec }));
+  const logBookRead = (bookId, sec) =>
+    setBookTime((t) => ({ ...t, [bookId]: (t[bookId] || 0) + sec }));
   const finishBook = (id) => {
     setFinished((f) => (f[id] ? f : { ...f, [id]: today() }));
     setShelf((s) => ({
@@ -185,60 +146,35 @@ export function AppProvider({ children }) {
   };
   const saveDraft = (d) => {
     const id = d.id || uid();
-    setDrafts((ds) =>
-      d.id
-        ? ds.map((x) => (x.id === d.id ? { ...x, ...d } : x))
-        : [{ id, at: today(), ...d }, ...ds],
-    );
+    setDrafts((ds) => (d.id ? ds.map((x) => (x.id === d.id ? { ...x, ...d } : x)) : [{ id, at: today(), ...d }, ...ds]));
     return id;
   };
   const removeDraft = (id) => setDrafts((ds) => ds.filter((d) => d.id !== id));
 
-  /* ===== buku global (login wajib; server cek: admin bebas, user = miliknya) ===== */
+  /* ===== buku global ===== */
   const addCustomBook = (b) => {
     const withOwner = { ...b, owner: user?.email || null };
-    setCustomBooks((bs) => [
-      withOwner,
-      ...bs.filter((x) => x.slug !== withOwner.slug),
-    ]);
-    setDbBooks((bs) => [
-      withOwner,
-      ...bs.filter((x) => x.slug !== withOwner.slug),
-    ]);
+    setCustomBooks((bs) => [withOwner, ...bs.filter((x) => x.slug !== withOwner.slug)]);
+    setDbBooks((bs) => [withOwner, ...bs.filter((x) => x.slug !== withOwner.slug)]);
     if (user && HAS_DB)
-      supabase
-        .from("books")
-        .upsert({
-          slug: withOwner.slug,
-          data: withOwner,
-          owner: withOwner.owner,
-        })
+      supabase.from("books").upsert({ slug: withOwner.slug, data: withOwner, owner: withOwner.owner })
         .then(({ error }) => error && gagal(error));
   };
   const removeCustomBook = (slug) => {
     setCustomBooks((bs) => bs.filter((b) => b.slug !== slug));
     setDbBooks((bs) => bs.filter((b) => b.slug !== slug));
     if (user && HAS_DB)
-      supabase
-        .from("books")
-        .delete()
-        .eq("slug", slug)
-        .then(({ error }) => error && gagal(error));
+      supabase.from("books").delete().eq("slug", slug).then(({ error }) => error && gagal(error));
   };
   const removeBook = (slug) => {
-    const b = [...BOOKS, ...dbBooks, ...customBooks].find(
-      (x) => x.slug === slug,
-    );
+    const b = [...BOOKS, ...dbBooks, ...customBooks].find((x) => x.slug === slug);
     if (!b) return;
     if (b.custom) removeCustomBook(slug);
     else {
-      if (!isAdmin) return; // buku bawaan hanya bisa disembunyikan admin
+      if (!isAdmin) return;
       setHiddenIds((h) => {
         const next = h.includes(b.id) ? h : [...h, b.id];
-        supabase
-          .from("meta")
-          .upsert({ key: "hidden_ids", value: next })
-          .then(({ error }) => error && gagal(error));
+        supabase.from("meta").upsert({ key: "hidden_ids", value: next }).then(({ error }) => error && gagal(error));
         return next;
       });
     }
@@ -246,21 +182,17 @@ export function AppProvider({ children }) {
   const restoreBuiltin = () => {
     if (!isAdmin) return;
     setHiddenIds([]);
-    supabase
-      .from("meta")
-      .upsert({ key: "hidden_ids", value: [] })
-      .then(({ error }) => error && gagal(error));
+    supabase.from("meta").upsert({ key: "hidden_ids", value: [] }).then(({ error }) => error && gagal(error));
   };
 
-  /* ===== glosarium: semua bisa tambah; edit/hapus admin (dijaga RLS) ===== */
+  /* ===== glosarium ===== */
   const addGlos = async (kata, arti) => {
     const k = (kata || "").trim().toLowerCase();
     const v = (arti || "").trim();
     if (!k || !v) return;
     setGlos((g) => ({ ...g, [k]: v }));
     if (HAS_DB) {
-      const { error } = await supabase
-        .from("glossary")
+      const { error } = await supabase.from("glossary")
         .upsert({ kata: k, arti: v, oleh: user?.email || "Tamu" });
       if (error) gagal(error);
     }
@@ -269,11 +201,7 @@ export function AppProvider({ children }) {
     if (!isAdmin) return;
     const k = (kata || "").trim().toLowerCase();
     if (!k) return;
-    setGlos((g) => {
-      const c = { ...g };
-      delete c[k];
-      return c;
-    });
+    setGlos((g) => { const c = { ...g }; delete c[k]; return c; });
     const { error } = await supabase.from("glossary").delete().eq("kata", k);
     if (error) gagal(error);
   };
@@ -287,54 +215,20 @@ export function AppProvider({ children }) {
 
   const books = useMemo(() => {
     const m = new Map();
-    [...BOOKS, ...dbBooks, ...customBooks].forEach((b) => {
-      if (!m.has(b.slug)) m.set(b.slug, b);
-    });
+    [...BOOKS, ...dbBooks, ...customBooks].forEach((b) => { if (!m.has(b.slug)) m.set(b.slug, b); });
     return [...m.values()].filter((b) => !hiddenIds.includes(b.id));
   }, [dbBooks, customBooks, hiddenIds]);
   const getBook = (slug) => books.find((b) => b.slug === slug);
 
   return (
-    <Ctx.Provider
-      value={{
-        user,
-        login,
-        register,
-        logout,
-        isAdmin,
-        listAdmin,
-        addAdmin,
-        removeAdmin,
-        theme,
-        setTheme,
-        progress,
-        saveProgress,
-        shelf,
-        moveTo,
-        toggleShelf,
-        highlights,
-        addHighlight,
-        removeHighlight,
-        drafts,
-        saveDraft,
-        removeDraft,
-        readlog,
-        logRead,
-        finished,
-        finishBook,
-        customBooks,
-        addCustomBook,
-        removeCustomBook,
-        removeBook,
-        restoreBuiltin,
-        hiddenIds,
-        glos,
-        addGlos,
-        removeGlos,
-        restoreGlos,
-        books,
-        getBook,
-      }}>
+    <Ctx.Provider value={{ user, login, register, logout, isAdmin,
+      listAdmin, addAdmin, removeAdmin,
+      theme, setTheme, progress, saveProgress, shelf, moveTo, toggleShelf,
+      highlights, addHighlight, removeHighlight, drafts, saveDraft, removeDraft,
+      readlog, logRead, bookTime, logBookRead, finished, finishBook,
+      customBooks, addCustomBook, removeCustomBook, removeBook, restoreBuiltin,
+      hiddenIds, glos, addGlos, removeGlos, restoreGlos,
+      books, getBook }}>
       {children}
     </Ctx.Provider>
   );
