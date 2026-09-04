@@ -15,14 +15,22 @@ export const useApp = () => useContext(Ctx);
 
 export const PENERBIT_RESMI = "Tim Sela";
 
+const KOSONG = { baca: [], selesai: [], simpan: [] };
+const KUNCI_PRIBADI = [
+  "progress",
+  "shelf",
+  "highlights",
+  "bookTime",
+  "readlog",
+  "finished",
+];
+
 export function AppProvider({ children }) {
   /* ===== data pribadi (lokal + tersinkron) ===== */
   const [user, setUser] = useState(() => LS("user"));
   const [theme, setTheme] = useState(() => LS("theme") || "terang");
   const [progress, setProgress] = useState(() => LS("progress") || {});
-  const [shelf, setShelf] = useState(
-    () => LS("shelf") || { baca: [], selesai: [], simpan: [] },
-  );
+  const [shelf, setShelf] = useState(() => LS("shelf") || KOSONG);
   const [highlights, setHighlights] = useState(() => LS("highlights") || []);
   const [drafts, setDrafts] = useState(() => LS("drafts") || []);
   const [readlog, setReadlog] = useState(() => LS("readlog") || {});
@@ -37,7 +45,7 @@ export function AppProvider({ children }) {
   const [views, setViews] = useState(() => LS("views") || {});
   const [isAdmin, setIsAdmin] = useState(false);
   const hydrated = useRef(false);
-  const pulled = useRef(false); // pull hanya 1x per sesi login
+  const pulledEmail = useRef(null); // email yang SUDAH di-pull sesi ini
 
   /* ===== persist lokal ===== */
   useEffect(() => {
@@ -101,6 +109,17 @@ export function AppProvider({ children }) {
     setIsAdmin(!!data);
   };
 
+  /* kosongkan data pribadi lokal (saat ganti pemilik perangkat) */
+  const bersihkanPribadi = () => {
+    setProgress({});
+    setShelf(KOSONG);
+    setHighlights([]);
+    setBookTime({});
+    setReadlog({});
+    setFinished({});
+    KUNCI_PRIBADI.forEach((k) => RM(k));
+  };
+
   const applyUser = (su) => {
     const lama = LS("user");
     const u = {
@@ -108,6 +127,15 @@ export function AppProvider({ children }) {
       email: su.email,
       name: lama?.email === su.email ? lama.name : su.email.split("@")[0],
     };
+
+    /* ===== PEMBATAS ANTAR AKUN =====
+       Kalau data lokal di perangkat ini bukan milik email yang login,
+       kosongkan dulu — jangan biarkan diwarisi / terdorong ke akun baru. */
+    if (LS("dataOwner") !== su.email) {
+      bersihkanPribadi();
+      SV("dataOwner", su.email);
+    }
+
     setUser(u);
     SV("user", u);
     cekAdmin(su.email);
@@ -125,6 +153,7 @@ export function AppProvider({ children }) {
         setUser(null);
         setIsAdmin(false);
         RM("user");
+        pulledEmail.current = null;
       }
     });
     return () => sub.data.subscription.unsubscribe();
@@ -154,7 +183,8 @@ export function AppProvider({ children }) {
     setUser(null);
     setIsAdmin(false);
     RM("user");
-    pulled.current = false; // login berikutnya pull ulang
+    pulledEmail.current = null; // login berikutnya pull ulang
+    // data pribadi TIDAK dihapus: pemiliknya bisa kembali di perangkat ini
   };
 
   /* ===== manajemen admin ===== */
@@ -190,8 +220,8 @@ export function AppProvider({ children }) {
   };
 
   const pullSync = async (su) => {
-    if (!HAS_DB || !su || pulled.current) return; // guard: 1x per sesi
-    pulled.current = true;
+    if (!HAS_DB || !su || pulledEmail.current === su.email) return;
+    pulledEmail.current = su.email; // per-email, bukan sekali sesi
     hydrated.current = false;
     const { data } = await supabase
       .from("user_data")
@@ -199,20 +229,20 @@ export function AppProvider({ children }) {
       .eq("user_id", su.id)
       .maybeSingle();
     if (data?.data) {
-      const d = data.data; // server menang (hanya saat pertama login)
+      const d = data.data; // server menang
       if (d.progress) setProgress(d.progress);
       if (d.shelf) setShelf(d.shelf);
       if (d.highlights) setHighlights(d.highlights);
       if (d.bookTime) setBookTime(d.bookTime);
       if (d.readlog) setReadlog(d.readlog);
       if (d.finished) setFinished(d.finished);
-    } else {
-      pushSync(su.id); // akun baru: dorong data lokal
     }
+    /* TIDAK ADA push data lokal untuk akun tanpa data server —
+       itulah celah yang membuat data user lama diwarisi user baru. */
     hydrated.current = true;
   };
 
-  /* auto-push (debounce 1.5 dtk) setiap data pribadi berubah */
+  /* auto-push (debounce 1.5 dtk) */
   useEffect(() => {
     if (!HAS_DB || !user || !hydrated.current) return;
     const t = setTimeout(() => pushSync(), 1500);
