@@ -6,7 +6,7 @@ import { G2M, MODE } from "../data/books";
 import NotFound from "./NotFound";
 import { fmtMin, fmtDate } from "../lib/utils";
 
-/* ikon bintang SVG — tanpa emoji */
+/* ikon bintang SVG */
 function Bintang({ isi = 0, ukuran = 16, interaktif, onSet, onHover }) {
   const p =
     "M12 2l2.9 6.26 6.6.57-5 4.36 1.5 6.45L12 16.9 5.99 19.64l1.5-6.45-5-4.36 6.6-.57L12 2z";
@@ -37,13 +37,35 @@ function Bintang({ isi = 0, ukuran = 16, interaktif, onSet, onHover }) {
   );
 }
 
-/* identitas penulis ulasan: admin = "Tim Sela" berbintang, lainnya = nama sendiri */
+/* avatar + badge bintang admin di pojok kanan atas */
+/* avatar + badge bintang admin di pojok kanan atas
+   inisial mengikuti NAMA YANG TAMPIL: admin = T (Tim Sela), lainnya = huruf pertama namanya */
+function Avatar({ r }) {
+  const init = (r.admin ? "T" : r.nama[0]).toUpperCase();
+  return (
+    <span className="relative shrink-0">
+      <span
+        className={`w-9 h-9 rounded-full grid place-items-center text-xs font-display font-bold ${r.admin ? "bg-accent text-white" : "bg-ink text-paper"}`}>
+        {init}
+      </span>
+      {r.admin && (
+        <span
+          className="-top-1 -right-1 absolute place-items-center grid bg-ink border-2 border-paper rounded-full text-paper"
+          style={{ width: 18, height: 18 }}
+          title="Tim Sela">
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2l2.9 6.26 6.6.57-5 4.36 1.5 6.45L12 16.9 5.99 19.64l1.5-6.45-5-4.36 6.6-.57L12 2z" />
+          </svg>
+        </span>
+      )}
+    </span>
+  );
+}
+
+/* nama penulis ulasan: admin = "Tim Sela" berwarna aksen, lainnya = nama sendiri */
 function Identitas({ r }) {
   return r.admin ? (
     <span className="inline-flex items-center gap-1 font-semibold text-[13px] text-accent">
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12 2l2.9 6.26 6.6.57-5 4.36 1.5 6.45L12 16.9 5.99 19.64l1.5-6.45-5-4.36 6.6-.57L12 2z" />
-      </svg>
       Tim Sela
     </span>
   ) : (
@@ -132,7 +154,6 @@ export default function BookDetail() {
             {book.penulis} · {book.genre} · ~{fmtMin(book.durasi)} baca
           </p>
 
-          {/* meta: views + rating rata-rata */}
           <div className="flex flex-wrap items-center gap-4 mt-3 text-sm">
             <span className="inline-flex items-center gap-1.5 text-ink2">
               <svg
@@ -233,7 +254,7 @@ export default function BookDetail() {
       </section>
 
       {/* ===== RATING & ULASAN ===== */}
-      <section className="mt-12">
+      <section className="mt-12 pb-10">
         <p className="mb-3 lbl">Rating & ulasan</p>
 
         <div className="p-5 card">
@@ -280,10 +301,7 @@ export default function BookDetail() {
           {(ulasan || []).map((r) => (
             <div key={r.id} className="p-4 card">
               <div className="flex items-center gap-3">
-                <span
-                  className={`w-8 h-8 rounded-full grid place-items-center text-xs font-display font-bold shrink-0 ${r.admin ? "bg-accent text-white" : "bg-ink text-paper"}`}>
-                  {(r.admin ? "T" : r.nama[0]).toUpperCase()}
-                </span>
+                <Avatar r={r} />
                 <div className="flex-1 min-w-0">
                   <Identitas r={r} />
                   <div className="flex items-center gap-2">
