@@ -1,4 +1,4 @@
-const C = "sela-v2"; // ← naik versi = buang cache lama otomatis
+const C = "sela-v4"; // ← naik versi = buang cache lama otomatis
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (e) => {
   e.waitUntil(

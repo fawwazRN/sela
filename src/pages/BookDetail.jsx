@@ -2,10 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router";
 import { useApp } from "../context/AppContext";
 import Cover from "../components/Cover";
+import Chat from "../components/Chat";
 import { G2M, MODE } from "../data/books";
 import NotFound from "./NotFound";
 import { fmtMin, fmtDate } from "../lib/utils";
 
+/* ikon bintang SVG — tanpa emoji */
 function Bintang({ isi = 0, ukuran = 16, interaktif, onSet, onHover }) {
   const p =
     "M12 2l2.9 6.26 6.6.57-5 4.36 1.5 6.45L12 16.9 5.99 19.64l1.5-6.45-5-4.36 6.6-.57L12 2z";
@@ -33,6 +35,20 @@ function Bintang({ isi = 0, ukuran = 16, interaktif, onSet, onHover }) {
         </svg>
       ))}
     </span>
+  );
+}
+
+/* identitas penulis ulasan: admin = "Tim Sela" berbintang, lainnya = nama sendiri */
+function Identitas({ r }) {
+  return r.admin ? (
+    <span className="inline-flex items-center gap-1 font-semibold text-[13px] text-accent">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 2l2.9 6.26 6.6.57-5 4.36 1.5 6.45L12 16.9 5.99 19.64l1.5-6.45-5-4.36 6.6-.57L12 2z" />
+      </svg>
+      Tim Sela
+    </span>
+  ) : (
+    <span className="font-medium text-[13px]">{r.nama}</span>
   );
 }
 
@@ -117,6 +133,7 @@ export default function BookDetail() {
             {book.penulis} · {book.genre} · ~{fmtMin(book.durasi)} baca
           </p>
 
+          {/* meta: views + rating rata-rata */}
           <div className="flex flex-wrap items-center gap-4 mt-3 text-sm">
             <span className="inline-flex items-center gap-1.5 text-ink2">
               <svg
@@ -217,7 +234,7 @@ export default function BookDetail() {
       </section>
 
       {/* ===== RATING & ULASAN ===== */}
-      <section className="mt-12 pb-10">
+      <section className="mt-12">
         <p className="mb-3 lbl">Rating & ulasan</p>
 
         <div className="p-5 card">
@@ -264,11 +281,12 @@ export default function BookDetail() {
           {(ulasan || []).map((r) => (
             <div key={r.id} className="p-4 card">
               <div className="flex items-center gap-3">
-                <span className="place-items-center grid bg-ink rounded-full w-8 h-8 font-display font-bold text-paper text-xs shrink-0">
-                  {r.nama[0].toUpperCase()}
+                <span
+                  className={`w-8 h-8 rounded-full grid place-items-center text-xs font-display font-bold shrink-0 ${r.admin ? "bg-accent text-white" : "bg-ink text-paper"}`}>
+                  {(r.admin ? "T" : r.nama[0]).toUpperCase()}
                 </span>
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate">{r.nama}</p>
+                  <Identitas r={r} />
                   <div className="flex items-center gap-2">
                     <Bintang isi={r.bintang} ukuran={12} />
                     <span className="text-[11px] text-ink2">
@@ -300,6 +318,11 @@ export default function BookDetail() {
             </p>
           )}
         </div>
+      </section>
+
+      {/* ===== DISKUSI ===== */}
+      <section className="mt-8 pb-10">
+        <Chat slug={book.slug} />
       </section>
     </div>
   );

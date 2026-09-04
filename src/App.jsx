@@ -21,6 +21,7 @@ import NotFound from "./pages/NotFound";
 import Tutorial from "./pages/Tutorial";
 import Glosarium from "./pages/Glosarium";
 import AdminPanel from "./pages/AdminPanel";
+import Catatan from "./pages/Catatan";
 
 export default function App() {
   const { pathname } = useLocation();
@@ -49,6 +50,7 @@ export default function App() {
         <Route path="/tutorial" element={<Tutorial />} />
         <Route path="/glosarium" element={<Glosarium />} />
         <Route path="/admin" element={<AdminPanel />} />
+        <Route path="/catatan" element={<Catatan />} />
       </Route>
 
       {/* Reader — chrome-less, UI menghilang */}

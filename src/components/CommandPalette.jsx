@@ -13,6 +13,7 @@ const PAGES = [
   { label: "Studio", to: "/studio" },
   { label: "Masuk", to: "/masuk" },
   { label: "Cara buat buku (tutorial)", to: "/tutorial" },
+  { label: "Catatan", to: "/catatan" },
 ];
 
 export default function CommandPalette({ open, onClose }) {

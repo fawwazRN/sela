@@ -22,6 +22,7 @@ export default function Navbar({ onSearch }) {
   const links = [
     { to: "/jelajah", label: "Jelajah" },
     { to: "/glosarium", label: "Glosarium" },
+    { to: "/catatan", label: "Catatan" },
     { to: "/impor", label: "Impor" },
     ...(user ? [{ to: "/studio", label: "Studio" }] : []),
   ];

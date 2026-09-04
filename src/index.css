@@ -265,3 +265,23 @@ input[type="range"] {
   border-radius: 0 12px 12px 0;
   padding: 0.9em 1.2em 0.9em 1.2em;
 }
+.kertas-putih {
+  background: #fffdf6;
+}
+.kertas-kuning {
+  background: #f5e6b8;
+}
+.kertas-garis {
+  background: #fffdf6;
+  background-image: repeating-linear-gradient(
+    transparent 0 27px,
+    rgba(26, 24, 21, 0.09) 27px 28px
+  );
+}
+.kertas-kotak {
+  background: #fbfdf8;
+  background-image:
+    linear-gradient(rgba(47, 93, 80, 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(47, 93, 80, 0.12) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
