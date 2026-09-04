@@ -37,7 +37,9 @@ export function AppProvider({ children }) {
   const [views, setViews] = useState(() => LS("views") || {});
   const [isAdmin, setIsAdmin] = useState(false);
   const hydrated = useRef(false);
+  const pulled = useRef(false); // pull hanya 1x per sesi login
 
+  /* ===== persist lokal ===== */
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     SV("theme", theme);
@@ -152,6 +154,7 @@ export function AppProvider({ children }) {
     setUser(null);
     setIsAdmin(false);
     RM("user");
+    pulled.current = false; // login berikutnya pull ulang
   };
 
   /* ===== manajemen admin ===== */
@@ -187,7 +190,8 @@ export function AppProvider({ children }) {
   };
 
   const pullSync = async (su) => {
-    if (!HAS_DB || !su) return;
+    if (!HAS_DB || !su || pulled.current) return; // guard: 1x per sesi
+    pulled.current = true;
     hydrated.current = false;
     const { data } = await supabase
       .from("user_data")
@@ -195,7 +199,7 @@ export function AppProvider({ children }) {
       .eq("user_id", su.id)
       .maybeSingle();
     if (data?.data) {
-      const d = data.data; // server menang
+      const d = data.data; // server menang (hanya saat pertama login)
       if (d.progress) setProgress(d.progress);
       if (d.shelf) setShelf(d.shelf);
       if (d.highlights) setHighlights(d.highlights);
@@ -208,7 +212,7 @@ export function AppProvider({ children }) {
     hydrated.current = true;
   };
 
-  /* auto-push (debounce 1.5 dtk) */
+  /* auto-push (debounce 1.5 dtk) setiap data pribadi berubah */
   useEffect(() => {
     if (!HAS_DB || !user || !hydrated.current) return;
     const t = setTimeout(() => pushSync(), 1500);
@@ -386,6 +390,7 @@ export function AppProvider({ children }) {
     if (error) throw error;
   };
 
+  /* ===== katalog gabungan ===== */
   const books = useMemo(() => {
     const m = new Map();
     [...BOOKS, ...dbBooks, ...customBooks].forEach((b) => {
