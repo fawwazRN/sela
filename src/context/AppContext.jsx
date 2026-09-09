@@ -36,6 +36,15 @@ export function AppProvider({ children }) {
   const [readlog, setReadlog] = useState(() => LS("readlog") || {});
   const [finished, setFinished] = useState(() => LS("finished") || {});
   const [bookTime, setBookTime] = useState(() => LS("bookTime") || {});
+  const [goal, setGoalState] = useState(() => {
+    const g = Number(LS("goal"));
+    return g > 0 ? g : 20; // ← jaring aman: tak pernah 0/NaN
+  });
+  const setGoal = (m) => {
+    const v = Number(m) > 0 ? Number(m) : 20;
+    setGoalState(v);
+    SV("goal", v);
+  };
 
   /* ===== data global ===== */
   const [customBooks, setCustomBooks] = useState(() => LS("customBooks") || []);
@@ -45,7 +54,7 @@ export function AppProvider({ children }) {
   const [views, setViews] = useState(() => LS("views") || {});
   const [isAdmin, setIsAdmin] = useState(false);
   const hydrated = useRef(false);
-  const pulledEmail = useRef(null); // email yang SUDAH di-pull sesi ini
+  const pulledEmail = useRef(null);
 
   /* ===== persist lokal ===== */
   useEffect(() => {
@@ -59,6 +68,7 @@ export function AppProvider({ children }) {
   useEffect(() => SV("readlog", readlog), [readlog]);
   useEffect(() => SV("finished", finished), [finished]);
   useEffect(() => SV("bookTime", bookTime), [bookTime]);
+  useEffect(() => SV("goal", goal), [goal]);
   useEffect(() => SV("customBooks", customBooks), [customBooks]);
   useEffect(() => SV("dbBooks", dbBooks), [dbBooks]);
   useEffect(() => SV("hiddenIds", hiddenIds), [hiddenIds]);
@@ -109,7 +119,7 @@ export function AppProvider({ children }) {
     setIsAdmin(!!data);
   };
 
-  /* kosongkan data pribadi lokal (saat ganti pemilik perangkat) */
+  /* kosongkan data pribadi lokal saat ganti pemilik perangkat */
   const bersihkanPribadi = () => {
     setProgress({});
     setShelf(KOSONG);
@@ -128,9 +138,7 @@ export function AppProvider({ children }) {
       name: lama?.email === su.email ? lama.name : su.email.split("@")[0],
     };
 
-    /* ===== PEMBATAS ANTAR AKUN =====
-       Kalau data lokal di perangkat ini bukan milik email yang login,
-       kosongkan dulu — jangan biarkan diwarisi / terdorong ke akun baru. */
+    /* pembatas antar akun di perangkat yang sama */
     if (LS("dataOwner") !== su.email) {
       bersihkanPribadi();
       SV("dataOwner", su.email);
@@ -183,8 +191,7 @@ export function AppProvider({ children }) {
     setUser(null);
     setIsAdmin(false);
     RM("user");
-    pulledEmail.current = null; // login berikutnya pull ulang
-    // data pribadi TIDAK dihapus: pemiliknya bisa kembali di perangkat ini
+    pulledEmail.current = null;
   };
 
   /* ===== manajemen admin ===== */
@@ -213,7 +220,15 @@ export function AppProvider({ children }) {
       .from("user_data")
       .upsert({
         user_id: uidArg || user.id,
-        data: { progress, shelf, highlights, bookTime, readlog, finished },
+        data: {
+          progress,
+          shelf,
+          highlights,
+          bookTime,
+          readlog,
+          finished,
+          goal,
+        },
         updated_at: new Date().toISOString(),
       })
       .then(({ error }) => error && console.error(error));
@@ -221,7 +236,7 @@ export function AppProvider({ children }) {
 
   const pullSync = async (su) => {
     if (!HAS_DB || !su || pulledEmail.current === su.email) return;
-    pulledEmail.current = su.email; // per-email, bukan sekali sesi
+    pulledEmail.current = su.email;
     hydrated.current = false;
     const { data } = await supabase
       .from("user_data")
@@ -229,16 +244,15 @@ export function AppProvider({ children }) {
       .eq("user_id", su.id)
       .maybeSingle();
     if (data?.data) {
-      const d = data.data; // server menang
+      const d = data.data;
       if (d.progress) setProgress(d.progress);
       if (d.shelf) setShelf(d.shelf);
       if (d.highlights) setHighlights(d.highlights);
       if (d.bookTime) setBookTime(d.bookTime);
       if (d.readlog) setReadlog(d.readlog);
       if (d.finished) setFinished(d.finished);
+      if (d.goal && Number(d.goal) > 0) setGoalState(Number(d.goal));
     }
-    /* TIDAK ADA push data lokal untuk akun tanpa data server —
-       itulah celah yang membuat data user lama diwarisi user baru. */
     hydrated.current = true;
   };
 
@@ -248,7 +262,7 @@ export function AppProvider({ children }) {
     const t = setTimeout(() => pushSync(), 1500);
     return () => clearTimeout(t);
     // eslint-disable-next-line
-  }, [progress, shelf, highlights, bookTime, readlog, finished, user]);
+  }, [progress, shelf, highlights, bookTime, readlog, finished, goal, user]);
 
   /* ===== baca pribadi ===== */
   const saveProgress = (bookId, chap, pct) =>
@@ -460,6 +474,8 @@ export function AppProvider({ children }) {
         logBookRead,
         finished,
         finishBook,
+        goal,
+        setGoal,
         customBooks,
         addCustomBook,
         removeCustomBook,

@@ -129,6 +129,13 @@ export function mdToBlocks(mdRaw) {
       blocks.push({ t: "h", v: t.replace(/^#+\s*/, ""), lvl });
       continue;
     }
+    /* ===== LINIMASA: @tl TAHUN | peristiwa ===== */
+    if (/^@tl\s+/.test(t)) {
+      flush();
+      const m = t.match(/^@tl\s+(\S+)\s*\|\s*(.*)$/);
+      if (m) blocks.push({ t: "tl", y: clean(m[1]), v: clean(m[2]) });
+      continue;
+    }
     /* blockquote + dukungan list di dalamnya (> * item → bullet) */
     if (/^>\s?/.test(t)) {
       pushP();

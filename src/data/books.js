@@ -1,11 +1,63 @@
+/* ============================================================
+   SELA — katalog & konstanta
+============================================================ */
+
+/* sub-genre fiksi */
+export const FIKSI_SUB = [
+  "Umum",
+  "Fantasi",
+  "Misteri",
+  "Romansa",
+  "Thriller",
+  "Petualangan",
+  "Horor",
+];
+
+/* daftar genre lengkap (dipakai filter Jelajah, Studio, Impor) */
+export const GENRES_LIST = [
+  "Umum",
+  "Pelajaran",
+  "Fiksi",
+  "Fiksi: Fantasi",
+  "Fiksi: Misteri",
+  "Fiksi: Romansa",
+  "Fiksi: Thriller",
+  "Sejarah",
+  "Puisi",
+  "Anak",
+];
+
+/* warna aksen per genre (badge kartu, sampul, timeline) */
 export const ACC = {
   Pelajaran: "#2F5D50",
   Fiksi: "#B3402A",
+  "Fiksi: Fantasi": "#5B4B8A",
+  "Fiksi: Misteri": "#37474F",
+  "Fiksi: Romansa": "#C2571F",
+  "Fiksi: Thriller": "#8A3030",
   Sejarah: "#8A5A2B",
   Puisi: "#5B4B8A",
   Anak: "#C2571F",
   Umum: "#6E675B",
 };
+
+/* mode baca dasar per genre utama */
+export const G2M = {
+  Pelajaran: "fokus",
+  Fiksi: "imersi",
+  Sejarah: "linimasa",
+  Puisi: "lambat",
+  Anak: "ceria",
+  Umum: "imersi",
+};
+
+/* G2M2: genre utama + semua sub-genre fiksi → mode yang sama dengan Fiksi */
+export const G2M2 = Object.fromEntries([
+  ...Object.entries(G2M).flatMap(([g, m]) => [
+    [g, m],
+    ...FIKSI_SUB.filter((s) => s !== "Umum").map((s) => [`Fiksi: ${s}`, m]),
+  ]),
+]);
 
 export const MODE = {
   fokus: {
@@ -18,7 +70,7 @@ export const MODE = {
   },
   linimasa: {
     n: "Mode Linimasa",
-    d: "Garis waktu menyala mengikuti tahun yang sedang kamu baca.",
+    d: "Garis waktu di sisi kiri menyala mengikuti tahun yang sedang kamu baca.",
   },
   lambat: {
     n: "Mode Lambat",
@@ -29,15 +81,8 @@ export const MODE = {
     d: "Huruf besar, kata sulit bisa diketuk, dan tombol bacakan.",
   },
 };
-export const G2M = {
-  Pelajaran: "fokus",
-  Fiksi: "imersi",
-  Sejarah: "linimasa",
-  Puisi: "lambat",
-  Anak: "ceria",
-  Umum: "imersi",
-};
 
+/* glosarium bawaan */
 export const DIK = {
   rembulan: "satelit alami Bumi yang memantulkan cahaya matahari",
   hujan: "turunnya air dari awan ke bumi dalam butiran",
@@ -46,6 +91,7 @@ export const DIK = {
   kudeta: "penggantian kekuasaan dengan cara melanggar aturan",
 };
 
+/* ===== katalog bawaan ===== */
 export const BOOKS = [
   {
     id: "ipa-5",
@@ -61,7 +107,7 @@ export const BOOKS = [
         isi: [
           {
             t: "p",
-            v: "Setiap pagi, daun membuka jutaan mulut kecil bernama stomata. Udara masuk, cahaya jatuh, dan dapur mulai bekerja. Prosesnya disebut <b>fotosintesis</b> — tumbuhan membuat makanannya sendiri dari cahaya, air, dan karbon dioksida.",
+            v: "Setiap pagi, daun membuka jutaan mulut kecil bernama stomata. Udara masuk, cahaya jatuh, dan dapur mulai bekerja. Prosesnya disebut fotosintesis — tumbuhan membuat makanannya sendiri dari cahaya, air, dan karbon dioksida.",
           },
           {
             t: "diagram",
@@ -89,7 +135,7 @@ export const BOOKS = [
         isi: [
           {
             t: "p",
-            v: "Di sawah ada padi, belalang, katak, ular, dan elang. Rangkaian 'siapa makan siapa' ini disebut <b>jaring-jaring makanan</b> — cara energi berpindah dari matahari ke makhluk hidup.",
+            v: "Di sawah ada padi, belalang, katak, ular, dan elang. Rangkaian 'siapa makan siapa' ini disebut jaring-jaring makanan — cara energi berpindah dari matahari ke makhluk hidup.",
           },
           {
             t: "p",
@@ -110,7 +156,7 @@ export const BOOKS = [
     id: "kancil",
     slug: "kancil-dan-rembulan",
     judul: "Kancil dan Rembulan",
-    penulis: "Adaptasi Cerita Rakyat",
+    penulis: "Tim Sela",
     genre: "Anak",
     durasi: 15,
     desc: "Cerita rakyat klasik untuk pembaca muda — kata sulit bisa diketuk, dan bisa dibacakan.",
@@ -205,7 +251,7 @@ export const BOOKS = [
     slug: "malam-kudeta",
     judul: "Malam Kudeta",
     penulis: "B. Hartanto",
-    genre: "Fiksi",
+    genre: "Fiksi: Thriller",
     durasi: 320,
     desc: "Thriller politik: seorang jurnalis muda menemukan dokumen yang tidak seharusnya ada.",
     bab: [
@@ -232,6 +278,7 @@ export const BOOKS = [
   },
 ];
 
+/* ===== rak kurasi ===== */
 export const KURASI = [
   {
     slug: "bikin-paham",
@@ -251,13 +298,4 @@ export const KURASI = [
     desc: "Cerita yang menemani, bukan menghakimi.",
     ids: ["kudeta", "merdeka"],
   },
-];
-
-export const GENRES_LIST = [
-  "Umum",
-  "Pelajaran",
-  "Fiksi",
-  "Sejarah",
-  "Puisi",
-  "Anak",
 ];

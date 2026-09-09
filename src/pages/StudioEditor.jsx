@@ -1,14 +1,11 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { Navigate, useParams, Link } from "react-router";
 import { useApp, PENERBIT_RESMI } from "../context/AppContext";
-import { G2M, MODE, GENRES_LIST } from "../data/books";
+import { G2M2, MODE, GENRES_LIST } from "../data/books";
 import ContentRenderer from "../components/reader/ContentRenderer";
 import { mdToBlocks } from "../lib/markdown";
 import { uid } from "../lib/storage";
 
-/* Parser Studio:
-   # Judul bab | %% ringkasan | @?? kuis | opsi | opsi benar* | opsi
-   Sisanya markdown biasa (bold, italic, list, quote, callout, tabel, kode, {Tokoh}) */
 function parseMd(md) {
   const bab = [];
   let cur = null;
@@ -36,7 +33,11 @@ function parseMd(md) {
       bab.push(cur);
     } else if (/^%%\s?/.test(t)) {
       flush();
-      if (cur) cur.ringkasan = t.replace(/^%%\s?/, "");
+      if (cur)
+        cur.ringkasan = t
+          .replace(/^%%\s?/, "")
+          .split("@??")[0]
+          .trim();
     } else if (/^@\?\?\s?/.test(t)) {
       flush();
       if (cur) {
@@ -53,11 +54,8 @@ function parseMd(md) {
         );
         cur.kuis = { q: q.replace(/\\/g, ""), o, a };
       }
-    } else if (t === "") {
-      flush();
-    } else {
-      buf.push(l);
-    }
+    } else if (t === "") flush();
+    else buf.push(l);
   });
   flush();
   return bab.length
@@ -65,25 +63,52 @@ function parseMd(md) {
     : [{ judul: "Tanpa Judul", isi: [], ringkasan: null, kuis: null }];
 }
 
+const SISIP = [
+  ["**B**", "Tebal", "**teks tebal**"],
+  ["*I*", "Miring", "*teks miring*"],
+  ["H", "Bab baru", "\n# Judul Bab Baru\n\n"],
+  ["TL", "Linimasa", "\n@tl 2024 | Peristiwa penting.\n"],
+  ["?", "Kuis", "\n@?? Pertanyaannya? | Opsi A | Opsi benar* | Opsi C\n"],
+  ["%%", "Ringkasan", "\n%% Ringkasan bab dalam satu kalimat.\n"],
+  ["{ }", "Tokoh", "{Nama Tokoh}"],
+  ["¶", "Daftar", "\n- poin satu\n- poin dua\n"],
+];
+
 export default function StudioEditor() {
   const { id } = useParams();
   const { user, drafts, saveDraft, addCustomBook, isAdmin } = useApp();
   const draft = drafts.find((d) => d.id === id);
   const [pub, setPub] = useState(false);
-  const [pane, setPane] = useState("both"); // mobile: both | tulis | lihat
+  const [pane, setPane] = useState("both");
   const [penulis, setPenulis] = useState(() =>
     isAdmin ? PENERBIT_RESMI : user?.name || "",
   );
+  const [prevChap, setPrevChap] = useState(0);
+  const [savedFlash, setSavedFlash] = useState(false);
+  const [versi, setVersi] = useState(0);
+  const taRef = useRef(null);
+
   useEffect(() => {
     setPub(false);
+    setPrevChap(0);
   }, [id]);
 
-  /* hooks SEBELUM early return — wajib */
+  useEffect(() => {
+    if (!draft) return;
+    setSavedFlash(false);
+    const t = setTimeout(() => setSavedFlash(true), 900);
+    return () => clearTimeout(t);
+  }, [draft?.md, draft?.judul]);
+
   const bab = useMemo(
     () => (draft ? parseMd(draft.md) : []),
     [draft?.md, draft?.id],
   );
+  useEffect(() => {
+    if (prevChap >= bab.length) setPrevChap(Math.max(0, bab.length - 1));
+  }, [bab.length]);
 
+  /* hooks sebelum early return */
   if (!user)
     return <Navigate to="/masuk" state={{ from: `/studio/${id}` }} replace />;
   if (!draft)
@@ -96,10 +121,32 @@ export default function StudioEditor() {
       </div>
     );
 
-  const mode = G2M[draft.genre] || "imersi";
-  const pseudo = { id: "draft", judul: draft.judul, genre: draft.genre, bab };
-  const upd = (patch) => saveDraft({ ...draft, ...patch });
+  const mode = G2M2[draft.genre] || "imersi";
+  const pseudo = {
+    id: "draft-" + versi,
+    judul: draft.judul,
+    genre: draft.genre,
+    bab,
+  };
+  const upd = (patch) => {
+    saveDraft({ ...draft, ...patch });
+    setVersi((v) => v + 1);
+  };
   const kata = draft.md.split(/\s+/).filter(Boolean).length;
+
+  const sisip = (snip) => {
+    const ta = taRef.current;
+    if (!ta) return;
+    const start = ta.selectionStart,
+      end = ta.selectionEnd;
+    const baru = draft.md.slice(0, start) + snip + draft.md.slice(end);
+    upd({ md: baru });
+    setTimeout(() => {
+      ta.focus();
+      const pos = start + snip.length;
+      ta.setSelectionRange(pos, pos);
+    }, 0);
+  };
 
   const publish = () => {
     const penerbit = isAdmin ? penulis.trim() || PENERBIT_RESMI : user.name;
@@ -115,25 +162,27 @@ export default function StudioEditor() {
       bab: bab.map((c) => ({ ...c, raw: null })),
     });
     setPub(true);
+    setTimeout(() => setPub(false), 4000);
   };
 
   return (
     <div className="flex flex-col bg-paper h-screen">
-      <header className="flex flex-wrap items-center gap-3 bg-card px-4 py-2.5 border-line border-b">
+      {/* ===== HEADER ===== */}
+      <header className="flex flex-wrap items-center gap-2.5 bg-card px-4 py-2.5 border-line border-b">
         <Link to="/studio" className="!px-3 !py-1.5 text-xs btn btn-o shrink-0">
           ← Studio
         </Link>
         <input
           value={draft.judul}
           onChange={(e) => upd({ judul: e.target.value })}
-          className="!w-52 font-medium inp"
+          className="!w-44 font-medium inp"
           placeholder="Judul buku"
         />
         {isAdmin && (
           <input
             value={penulis}
             onChange={(e) => setPenulis(e.target.value)}
-            className="!w-36 text-xs inp"
+            className="!w-28 text-xs inp"
             title="Penulis / Penerbit"
           />
         )}
@@ -143,17 +192,18 @@ export default function StudioEditor() {
           className="!py-2 !w-auto text-xs inp">
           {GENRES_LIST.map((g) => (
             <option key={g} value={g}>
-              {g} — {MODE[G2M[g] || "imersi"].n}
+              {g}
             </option>
           ))}
         </select>
-        <span className="hidden md:block text-[11px] text-ink2">
-          {bab.length} bab · {kata} kata
-        </span>
         <div className="flex-1" />
+        <span
+          className={`text-[11px] transition-opacity ${savedFlash ? "opacity-100 text-green-600" : "opacity-0"}`}>
+          ✓ tersimpan
+        </span>
         {pub && (
-          <span className="text-green-600 text-xs">
-            ✓ Terpublikasi ke Jelajah
+          <span className="font-medium text-green-600 text-xs">
+            ✓ Terpublikasi ke Jelajah!
           </span>
         )}
         <button
@@ -163,6 +213,26 @@ export default function StudioEditor() {
         </button>
       </header>
 
+      {/* ===== TOOLBAR ===== */}
+      <div className="flex flex-wrap items-center gap-1.5 bg-card px-4 py-1.5 border-line border-b text-[11px]">
+        <span className="mr-1 text-ink2">Sisip:</span>
+        {SISIP.map(([lbl, nm, snip]) => (
+          <button
+            key={nm}
+            onClick={() => sisip(snip)}
+            title={`Sisip ${nm}`}
+            className="!px-2.5 !py-0.5 chip">
+            {lbl}
+          </button>
+        ))}
+        <div className="flex-1" />
+        <span className="text-ink2">
+          {bab.length} bab · {kata} kata · ±
+          {Math.max(1, Math.round(kata / 200))} mnt
+        </span>
+      </div>
+
+      {/* ===== MOBILE PANE ===== */}
       <div className="md:hidden flex border-line border-b text-xs">
         {[
           ["both", "Dua-duanya"],
@@ -178,17 +248,57 @@ export default function StudioEditor() {
         ))}
       </div>
 
+      {/* ===== BODY ===== */}
       <div className="flex-1 grid md:grid-cols-2 min-h-0">
         <textarea
+          ref={taRef}
           value={draft.md}
           onChange={(e) => upd({ md: e.target.value })}
           spellCheck={false}
-          className={`${pane === "lihat" ? "hidden md:block" : ""} h-full w-full resize-none bg-card p-6 font-mono text-sm outline-none border-r border-line`}
+          className={`${pane === "lihat" ? "hidden md:block" : ""} h-full w-full resize-none bg-card p-5 font-mono text-[13px] leading-relaxed outline-none border-r border-line`}
           placeholder={"# Bab Satu\n\nTulis di sini…"}
         />
+
+        {/* PRATINJAU — live terjamin via versi */}
         <div
-          className={`${pane === "tulis" ? "hidden md:block" : ""} h-full overflow-y-auto px-6 py-8`}>
-          <ContentRenderer book={pseudo} chap={0} mode={mode} onTap={null} />
+          className={`${pane === "tulis" ? "hidden md:block" : ""} h-full flex flex-col min-h-0 bg-paper`}>
+          <div className="flex items-center gap-2 bg-card/50 px-5 py-2 border-line border-b">
+            <span className="!text-[10px] lbl">Pratinjau langsung</span>
+            <span className="bg-green-500 rounded-full w-1.5 h-1.5 animate-pulse" />
+            <div className="flex-1" />
+            <button
+              disabled={prevChap === 0}
+              onClick={() => setPrevChap((c) => Math.max(0, c - 1))}
+              className="disabled:opacity-30 !px-2 !py-0.5 text-[11px] chip">
+              ←
+            </button>
+            <select
+              value={Math.min(prevChap, Math.max(0, bab.length - 1))}
+              onChange={(e) => setPrevChap(+e.target.value)}
+              className="!py-1 !w-auto text-[11px] inp">
+              {bab.map((c, i) => (
+                <option key={i} value={i}>
+                  Bab {i + 1} — {c.judul}
+                </option>
+              ))}
+            </select>
+            <button
+              disabled={prevChap >= bab.length - 1}
+              onClick={() =>
+                setPrevChap((c) => Math.min(bab.length - 1, c + 1))
+              }
+              className="disabled:opacity-30 !px-2 !py-0.5 text-[11px] chip">
+              →
+            </button>
+          </div>
+          <div className="flex-1 px-6 py-8 min-h-0 overflow-y-auto">
+            <ContentRenderer
+              book={pseudo}
+              chap={Math.min(prevChap, bab.length - 1)}
+              mode={mode}
+              onTap={null}
+            />
+          </div>
         </div>
       </div>
     </div>

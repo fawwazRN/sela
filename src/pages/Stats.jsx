@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { useApp } from "../context/AppContext";
 import { fmtMin, fmtDate } from "../lib/utils";
+import { today } from "../lib/storage";
 import { ACC } from "../data/books";
 
 /* ---------- util gambar ---------- */
@@ -43,6 +44,7 @@ function wrapCenter(x, text, font, maxW) {
   return lines;
 }
 
+/* ---------- kartu sertifikat ---------- */
 function drawCard(book, minutes, dateStr, userName) {
   const W = 1200,
     H = 630,
@@ -60,7 +62,6 @@ function drawCard(book, minutes, dateStr, userName) {
   const x = cv.getContext("2d");
   const cx = W / 2;
 
-  /* kertas + vignette */
   rr(x, 0, 0, W, H, R);
   x.clip();
   x.fillStyle = PAPER;
@@ -71,7 +72,6 @@ function drawCard(book, minutes, dateStr, userName) {
   x.fillStyle = vg;
   x.fillRect(0, 0, W, H);
 
-  /* bingkai ganda */
   x.strokeStyle = "rgba(26,24,21,0.85)";
   x.lineWidth = 2;
   rr(x, 32, 32, W - 64, H - 64, 20);
@@ -81,7 +81,6 @@ function drawCard(book, minutes, dateStr, userName) {
   rr(x, 42, 42, W - 84, H - 84, 14);
   x.stroke();
 
-  /* kop + pita genre */
   tracked(x, "SELA", cx, 96, 10, "700 20px Fraunces, Georgia", INK);
   tracked(
     x,
@@ -93,7 +92,6 @@ function drawCard(book, minutes, dateStr, userName) {
     GENRE,
   );
 
-  /* ===== judul: auto-fit ===== */
   const zoneTop = 190,
     zoneBottom = H - 132;
   const maxW = W - px * 2;
@@ -118,7 +116,6 @@ function drawCard(book, minutes, dateStr, userName) {
     y += lh;
   });
 
-  /* penulis */
   y += 46;
   x.font = "400 21px Literata, Georgia";
   x.fillStyle = INK2;
@@ -128,7 +125,6 @@ function drawCard(book, minutes, dateStr, userName) {
   if (penulis !== book.penulis) penulis += "…";
   x.fillText(penulis, cx, y);
 
-  /* ornamen: garis — belah ketupat — garis */
   y += 52;
   x.strokeStyle = "#C9BEA6";
   x.lineWidth = 1;
@@ -147,7 +143,6 @@ function drawCard(book, minutes, dateStr, userName) {
   x.fillRect(-5, -5, 10, 10);
   x.restore();
 
-  /* waktu baca */
   y += 66;
   const teksWaktu =
     minutes != null && minutes > 0
@@ -157,13 +152,11 @@ function drawCard(book, minutes, dateStr, userName) {
   x.fillStyle = INK;
   x.fillText(teksWaktu, cx, y);
 
-  /* tanggal */
   y += 40;
   x.font = "400 18px Literata, Georgia";
   x.fillStyle = INK2;
   x.fillText(`Selesai ${dateStr}`, cx, y);
 
-  /* footer: nama pembaca */
   const fy = H - 96;
   x.strokeStyle = LINE;
   x.lineWidth = 1;
@@ -197,8 +190,56 @@ function drawCard(book, minutes, dateStr, userName) {
   return cv.toDataURL("image/png");
 }
 
+/* ---------- ring target harian ---------- */
+function Ring({ p, size = 84 }) {
+  const r = (size - 10) / 2,
+    c = 2 * Math.PI * r;
+  return (
+    <svg width={size} height={size} className="shrink-0">
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={r}
+        fill="none"
+        stroke="var(--c-line)"
+        strokeWidth="8"
+      />
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={r}
+        fill="none"
+        stroke="var(--c-accent)"
+        strokeWidth="8"
+        strokeLinecap="round"
+        strokeDasharray={`${p * c} ${c}`}
+        transform={`rotate(-90 ${size / 2} ${size / 2})`}
+        style={{ transition: "stroke-dasharray .6s" }}
+      />
+      <text
+        x="50%"
+        y="50%"
+        textAnchor="middle"
+        dominantBaseline="central"
+        fontSize={size / 4.4}
+        fontWeight="700"
+        fill="var(--c-ink)"
+        fontFamily="Fraunces, Georgia, serif">
+        {Math.round(p * 100)}%
+      </text>
+    </svg>
+  );
+}
+
 export default function Stats() {
-  const { readlog, finished, books, bookTime, user } = useApp();
+  const { readlog, finished, books, bookTime, user, goal } = useApp();
+
+  /* ===== angka aman ===== */
+  const targetAman = Number(goal) > 0 ? Number(goal) : 20;
+  const mntHariIni = Math.round((readlog[today()] || 0) / 60);
+  const pTarget = Math.min(1, mntHariIni / targetAman);
+  const tercapai = mntHariIni >= targetAman;
+
   const total = Object.values(readlog).reduce((a, b) => a + b, 0);
   const has = (d) => (readlog[d.toISOString().slice(0, 10)] || 0) > 0;
   let streak = 0;
@@ -238,7 +279,33 @@ export default function Stats() {
       <h1 className="font-display font-bold text-3xl md:text-4xl">
         Statistik baca
       </h1>
-      <div className="gap-4 grid grid-cols-3 mt-6">
+
+      {/* ===== TARGET HARIAN ===== */}
+      <div className="flex items-center gap-5 mt-6 p-5 card">
+        <Ring p={pTarget} />
+        <div className="min-w-0">
+          <p className="font-display font-semibold text-lg">
+            {tercapai ? "Target harian tercapai" : "Target hari ini"}
+          </p>
+          <p className="mt-0.5 text-ink2 text-sm">
+            {mntHariIni} dari {targetAman} menit membaca
+            {tercapai
+              ? " — konsisten itu kuncinya."
+              : ` · sisa ${targetAman - mntHariIni} menit lagi.`}
+          </p>
+          <p className="mt-1 text-ink2 text-xs">
+            Atur target di{" "}
+            <Link
+              to="/saya/pengaturan"
+              className="text-accent underline underline-offset-4">
+              Pengaturan
+            </Link>
+            .
+          </p>
+        </div>
+      </div>
+
+      <div className="gap-4 grid grid-cols-3 mt-4">
         {[
           ["Total waktu", fmtMin(total / 60)],
           ["Hari beruntun", streak + " hari"],

@@ -59,7 +59,7 @@ export default function Catatan() {
   const [tool, setTool] = useState("pilih");
   const [warna, setWarna] = useState(WARNA[1]);
   const [selIds, setSelIds] = useState([]);
-  const [teksEd, setTeksEd] = useState(null); // {x, y, value, targetId?}
+  const [teksEd, setTeksEd] = useState(null);
   const [draftS, setDraftS] = useState(null);
   const [lassoS, setLassoS] = useState(null);
   const [view, setView] = useState({ x: 0, y: 0, z: 1 });
@@ -69,6 +69,7 @@ export default function Catatan() {
   const drag = useRef(null);
   const draftRef = useRef(null);
   const hist = useRef([]);
+  const simpanRef = useRef(null);
 
   const aktif = notes?.find((n) => n.id === aktifId) || null;
   const els = aktif?.elements || [];
@@ -98,7 +99,6 @@ export default function Catatan() {
     y: wy * view.z + view.y,
   });
 
-  /* ===== draft ref helpers ===== */
   const setDraft = (v) => {
     draftRef.current = v;
     setDraftS(v);
@@ -108,8 +108,29 @@ export default function Catatan() {
     draftRef.current = nv;
     setDraftS(nv);
   };
+  const setLasso = (v) => {
+    draftRef.current = v;
+    setLassoS(v);
+  };
 
-  /* ===== muat ===== */
+  /* ===== SIMPAN — dieksekusi sungguhan (.then wajib) ===== */
+  const simpanCatatan = (n) => {
+    if (!n || !supabase) return;
+    supabase
+      .from("notes")
+      .update({
+        judul: n.judul,
+        kertas: n.kertas,
+        elements: n.elements,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", n.id)
+      .then(({ error }) => {
+        if (error) console.error("Gagal simpan catatan:", error);
+      });
+  };
+
+  /* ===== muat: server + cermin lokal yang lebih baru ===== */
   useEffect(() => {
     if (!user) return;
     supabase
@@ -117,8 +138,19 @@ export default function Catatan() {
       .select("*")
       .order("updated_at", { ascending: false })
       .then(({ data }) => {
-        setNotes(data || []);
-        if (data?.length) setAktifId(data[0].id);
+        const srv = data || [];
+        const gabung = srv.map((n) => {
+          try {
+            const c = localStorage.getItem("sela.note." + n.id);
+            if (!c) return n;
+            const l = JSON.parse(c);
+            return new Date(l.updated_at) > new Date(n.updated_at) ? l : n;
+          } catch {
+            return n;
+          }
+        });
+        setNotes(gabung);
+        if (gabung.length) setAktifId(gabung[0].id);
       });
   }, [user?.id]);
 
@@ -144,24 +176,60 @@ export default function Catatan() {
     }
   };
 
+  /* ===== AUTOSAVE: 400ms + cermin localStorage instan ===== */
   useEffect(() => {
     if (!aktif) return;
+    try {
+      localStorage.setItem("sela.note." + aktif.id, JSON.stringify(aktif));
+    } catch {}
+    simpanRef.current = aktif;
     const t = setTimeout(() => {
-      supabase
-        .from("notes")
-        .update({
-          judul: aktif.judul,
-          kertas: aktif.kertas,
-          elements: aktif.elements,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", aktif.id);
-    }, 800);
+      if (simpanRef.current) {
+        simpanCatatan(simpanRef.current);
+        simpanRef.current = null;
+      }
+    }, 400);
     return () => clearTimeout(t);
-  }, [aktif?.elements, aktif?.judul, aktif?.kertas, aktifId]);
+  }, [aktif]);
 
+  /* ===== FLUSH saat unmount (pindah halaman) ===== */
   useEffect(() => {
-    setSelIds((ids) => ids.filter((id) => els.some((e) => e.id === id)));
+    return () => {
+      const n = simpanRef.current;
+      if (n && supabase) {
+        supabase
+          .from("notes")
+          .update({
+            judul: n.judul,
+            kertas: n.kertas,
+            elements: n.elements,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", n.id)
+          .then(({ error }) => {
+            if (error) console.error("Gagal flush catatan:", error);
+          });
+        simpanRef.current = null;
+      }
+    };
+  }, [aktifId]);
+
+  /* ===== FLUSH saat tutup/refresh tab ===== */
+  useEffect(() => {
+    const flushEv = () => {
+      const n = simpanRef.current;
+      if (n) simpanCatatan(n);
+    };
+    window.addEventListener("beforeunload", flushEv);
+    return () => window.removeEventListener("beforeunload", flushEv);
+  }, []);
+
+  /* ===== seleksi auto-bersih — ANTI-LOOP ===== */
+  useEffect(() => {
+    setSelIds((ids) => {
+      const next = ids.filter((id) => els.some((e) => e.id === id));
+      return next.length === ids.length ? ids : next;
+    });
   }, [els]);
 
   /* ===== zoom ===== */
@@ -185,6 +253,22 @@ export default function Catatan() {
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
   }, [aktifId, notes]);
+
+  /* ===== jaring pengaman drag ===== */
+  useEffect(() => {
+    const jaring = () => {
+      if (drag.current) {
+        setDraft(null);
+        drag.current = null;
+      }
+    };
+    window.addEventListener("pointerup", jaring);
+    window.addEventListener("blur", jaring);
+    return () => {
+      window.removeEventListener("pointerup", jaring);
+      window.removeEventListener("blur", jaring);
+    };
+  }, []);
 
   /* ===== hit ===== */
   const rectAt = (p, except) => {
@@ -280,7 +364,7 @@ export default function Catatan() {
       .map((e) => e.id);
   };
 
-  /* ===== EDITOR TEKS (satu-satunya jalan membuat/mengubah teks) ===== */
+  /* ===== editor teks ===== */
   const bukaTeks = (x, y, targetId = null, value = "") =>
     setTeksEd({ x, y, value, targetId });
   const simpanTeks = () => {
@@ -315,7 +399,9 @@ export default function Catatan() {
   /* ===== pointer ===== */
   const down = (e) => {
     if (teksEd) return;
-    svgRef.current.setPointerCapture(e.pointerId);
+    try {
+      svgRef.current.setPointerCapture(e.pointerId);
+    } catch {}
     const p = toWorld(e);
 
     if (tool === "tangan") {
@@ -332,7 +418,7 @@ export default function Catatan() {
     if (tool === "teks") {
       bukaTeks(p.x, p.y + 20);
       return;
-    } // ← sederhana: buka editor, titik.
+    }
 
     if (tool === "kotak" || tool === "sticky") {
       snapshot();
@@ -386,7 +472,6 @@ export default function Catatan() {
       return;
     }
 
-    /* tool pilih */
     if (selIds.length === 1) {
       const s = els.find((x) => x.id === selIds[0]);
       if (
@@ -418,7 +503,7 @@ export default function Catatan() {
         .map((o) => JSON.parse(JSON.stringify(o)));
       drag.current = { mode: "move", origs, ox: p.x, oy: p.y };
     } else {
-      setLassoS({
+      setLasso({
         type: "lasso",
         x1: p.x,
         y1: p.y,
@@ -448,7 +533,7 @@ export default function Catatan() {
         } else setDraftUp((x) => ({ ...x, points: [...x.points, p] }));
       } else if (dr?.type === "lasso") {
         const p = toWorld(e);
-        setLassoS((L) => ({ ...L, x2: p.x, y2: p.y }));
+        setLasso((L) => ({ ...L, x2: p.x, y2: p.y }));
       }
       return;
     }
@@ -518,10 +603,12 @@ export default function Catatan() {
     }
   };
 
-  const up = () => {
+  const up = (e) => {
+    try {
+      svgRef.current.releasePointerCapture(e.pointerId);
+    } catch {}
     const dr = draftRef.current;
     if (dr?.type === "kotak" || dr?.type === "sticky") {
-      /* ← INI PERBAIKAN UTAMA: tambah (append), bukan map */
       setEls((xs) => [...xs, dr]);
       setSelIds([dr.id]);
     } else if (dr?.type === "panah") {
@@ -537,7 +624,6 @@ export default function Catatan() {
     drag.current = null;
   };
 
-  /* ===== edit teks via klik ganda ===== */
   const dbl = (e) => {
     const el = hitEl(toWorld(e));
     if (el && el.type === "teks") bukaTeks(el.x, el.y, el.id, el.text);
@@ -746,6 +832,7 @@ export default function Catatan() {
   const hapusNote = async (id) => {
     if (!confirm("Hapus catatan ini?")) return;
     await supabase.from("notes").delete().eq("id", id);
+    localStorage.removeItem("sela.note." + id);
     const sisa = notes.filter((n) => n.id !== id);
     setNotes(sisa);
     setAktifId(sisa[0]?.id || null);
@@ -879,6 +966,7 @@ export default function Catatan() {
               <button
                 onClick={duplikat}
                 disabled={!selIds.length}
+                title="Ctrl+D"
                 className="disabled:opacity-40 !px-2.5 !py-1 text-[11px] chip">
                 Duplikat
               </button>
@@ -902,8 +990,8 @@ export default function Catatan() {
             </div>
             <p className="mt-1.5 text-[11px] text-ink2">
               Alat <b>Teks</b>: klik kertas → ketik → Enter · klik ganda
-              teks/kotak = ubah isi · seret kosong = seleksi (Shift = tambah) ·
-              Delete = hapus
+              teks/kotak/sticky = ubah isi · seret kosong = seleksi (Shift =
+              tambah) · Delete = hapus
               {selIds.length > 0 && (
                 <b className="text-accent"> · {selIds.length} terpilih</b>
               )}
@@ -911,6 +999,9 @@ export default function Catatan() {
 
             <div
               ref={wrapRef}
+              onPointerDown={() => {
+                if (teksEd) simpanTeks();
+              }}
               className="relative mt-2 !rounded-xl overflow-hidden touch-none card"
               style={{
                 height: "68vh",
@@ -1188,15 +1279,14 @@ export default function Catatan() {
                 </g>
               </svg>
 
-              {/* ===== EDITOR TEKS — muncul persis di titik klik ===== */}
               {teksEd && edScr && (
                 <div
                   className="z-20 absolute"
-                  style={{ left: edScr.left, top: edScr.top }}>
+                  style={{ left: edScr.left, top: edScr.top }}
+                  onPointerDown={(e) => e.stopPropagation()}>
                   <textarea
                     autoFocus
                     value={teksEd.value}
-                    onPointerDown={(e) => e.stopPropagation()}
                     onChange={(ev) =>
                       setTeksEd({ ...teksEd, value: ev.target.value })
                     }

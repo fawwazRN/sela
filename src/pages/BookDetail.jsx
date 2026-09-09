@@ -2,11 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router";
 import { useApp } from "../context/AppContext";
 import Cover from "../components/Cover";
-import { G2M, MODE } from "../data/books";
+import { G2M2, MODE, ACC } from "../data/books";
 import NotFound from "./NotFound";
 import { fmtMin, fmtDate } from "../lib/utils";
 
-/* ikon bintang SVG */
 function Bintang({ isi = 0, ukuran = 16, interaktif, onSet, onHover }) {
   const p =
     "M12 2l2.9 6.26 6.6.57-5 4.36 1.5 6.45L12 16.9 5.99 19.64l1.5-6.45-5-4.36 6.6-.57L12 2z";
@@ -37,9 +36,6 @@ function Bintang({ isi = 0, ukuran = 16, interaktif, onSet, onHover }) {
   );
 }
 
-/* avatar + badge bintang admin di pojok kanan atas */
-/* avatar + badge bintang admin di pojok kanan atas
-   inisial mengikuti NAMA YANG TAMPIL: admin = T (Tim Sela), lainnya = huruf pertama namanya */
 function Avatar({ r }) {
   const init = (r.admin ? "T" : r.nama[0]).toUpperCase();
   return (
@@ -62,7 +58,6 @@ function Avatar({ r }) {
   );
 }
 
-/* nama penulis ulasan: admin = "Tim Sela" berwarna aksen, lainnya = nama sendiri */
 function Identitas({ r }) {
   return r.admin ? (
     <span className="inline-flex items-center gap-1 font-semibold text-[13px] text-accent">
@@ -114,7 +109,8 @@ export default function BookDetail() {
 
   if (!book) return <NotFound />;
   const p = progress[book.id];
-  const m = MODE[G2M[book.genre] || "imersi"];
+  const c = ACC[book.genre] || ACC.Umum;
+  const m = MODE[G2M2[book.genre] || "imersi"];
   const saved = shelf.simpan.includes(book.id);
   const bolehHapus = isAdmin || (user && book.owner === user.email);
   const hits = views[book.slug] || 0;
@@ -141,89 +137,124 @@ export default function BookDetail() {
 
   return (
     <div className="mx-auto px-5 pt-10 max-w-4xl fadein">
-      <Link to="/jelajah" className="text-ink2 hover:text-ink text-sm">
-        ← Jelajah
-      </Link>
-      <div className="flex sm:flex-row flex-col gap-8 mt-6">
-        <Cover book={book} big className="w-44 aspect-[3/4]" />
-        <div className="flex-1">
-          <h1 className="font-display font-bold text-3xl md:text-4xl leading-tight">
-            {book.judul}
-          </h1>
-          <p className="mt-2 text-ink2">
-            {book.penulis} · {book.genre} · ~{fmtMin(book.durasi)} baca
-          </p>
-
-          <div className="flex flex-wrap items-center gap-4 mt-3 text-sm">
-            <span className="inline-flex items-center gap-1.5 text-ink2">
-              <svg
-                width="15"
-                height="15"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2">
-                <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" />
-                <circle cx="12" cy="12" r="3" />
-              </svg>
-              {fmtHits} pembaca
-            </span>
-            {rata && (
-              <span className="inline-flex items-center gap-1.5">
-                <Bintang isi={Math.round(rata)} ukuran={14} />
-                <b>{rata}</b>
-                <span className="text-ink2">({ulasan.length} ulasan)</span>
-              </span>
-            )}
-          </div>
-
-          <p className="mt-4 leading-relaxed">{book.desc}</p>
-          <span className="mt-4 !cursor-default chip">{m.n}</span>
-          <p className="mt-1.5 text-ink2 text-sm">{m.d}</p>
-
-          <div className="flex flex-wrap gap-3 mt-6">
-            <button
-              onClick={() => nav(`/baca/${book.slug}`)}
-              className="btn btn-p">
-              {p
-                ? `Lanjut bab ${(p.chap ?? 0) + 1} →`
-                : "Baca sekarang — gratis"}
-            </button>
-            <button onClick={() => toggleShelf(book.id)} className="btn btn-o">
-              {saved ? "★ Tersimpan" : "☆ Simpan"}
-            </button>
-            {bolehHapus && (
-              <button
-                onClick={() => {
-                  if (confirm(`Hapus "${book.judul}"?`)) {
-                    removeBook(book.slug);
-                    nav("/jelajah");
-                  }
-                }}
-                className="!border-accent/40 !text-accent btn btn-o">
-                Hapus buku
-              </button>
-            )}
-          </div>
-
-          {p && (
-            <div className="bg-line mt-6 rounded max-w-sm h-1.5 overflow-hidden">
-              <div
-                className="bg-accent h-full"
-                style={{ width: `${p.pct}%` }}
-              />
+      {/* HERO band berwarna genre */}
+      <div
+        className="relative -mx-5 sm:mx-0 rounded-2xl overflow-hidden"
+        style={{ background: `linear-gradient(135deg, ${c}, #1A1815)` }}>
+        <div
+          className="absolute inset-0 opacity-10"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle at 85% 15%, #fff 1px, transparent 1px)",
+            backgroundSize: "20px 20px",
+          }}
+        />
+        <div className="relative p-7 md:p-9">
+          <Link
+            to="/jelajah"
+            className="text-[11px] text-white/60 hover:text-white uppercase tracking-[0.25em]">
+            ← Jelajah
+          </Link>
+          <div className="flex sm:flex-row flex-col items-start gap-6 mt-4">
+            <Cover
+              book={book}
+              big
+              className="shadow-2xl ring-1 ring-white/10 w-36 aspect-[3/4] shrink-0"
+            />
+            <div className="flex-1 min-w-0">
+              <h1 className="font-display font-bold text-white text-2xl md:text-4xl leading-tight">
+                {book.judul}
+              </h1>
+              <p className="mt-2 text-white/70 text-sm">
+                {book.penulis} · {book.genre} · ~{fmtMin(book.durasi)} baca
+              </p>
+              <div className="flex flex-wrap items-center gap-4 mt-3 text-sm">
+                <span className="inline-flex items-center gap-1.5 text-white/70">
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2">
+                    <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                  {fmtHits} pembaca
+                </span>
+                {rata && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <Bintang isi={Math.round(rata)} ukuran={13} />
+                    <b className="text-white">{rata}</b>
+                    <span className="text-white/60">
+                      ({ulasan.length} ulasan)
+                    </span>
+                  </span>
+                )}
+                <span className="bg-white/10 px-2 py-1 rounded text-[10px] text-white/80 uppercase tracking-wider">
+                  {m.n}
+                </span>
+              </div>
+              <p className="mt-4 max-w-xl text-white/80 text-sm leading-relaxed">
+                {book.desc}
+              </p>
             </div>
-          )}
+          </div>
         </div>
       </div>
 
-      {/* ===== DAFTAR ISI ===== */}
-      <section className="mt-12">
+      {/* AKSI */}
+      <div className="flex flex-wrap gap-3 mt-6">
+        <button onClick={() => nav(`/baca/${book.slug}`)} className="btn btn-p">
+          {p ? `Lanjut bab ${(p.chap ?? 0) + 1} →` : "Baca sekarang — gratis"}
+        </button>
+        <button onClick={() => toggleShelf(book.id)} className="btn btn-o">
+          {saved ? "★ Tersimpan" : "☆ Simpan"}
+        </button>
+        {bolehHapus && (
+          <button
+            onClick={() => {
+              if (confirm(`Hapus "${book.judul}"?`)) {
+                removeBook(book.slug);
+                nav("/jelajah");
+              }
+            }}
+            className="!border-accent/40 !text-accent btn btn-o">
+            Hapus buku
+          </button>
+        )}
+      </div>
+
+      {p && (
+        <div className="mt-6">
+          <div className="flex justify-between mb-1 text-[11px] text-ink2">
+            <span>Progres kamu</span>
+            <span>{Math.round(p.pct)}%</span>
+          </div>
+          <div className="bg-line rounded h-2 overflow-hidden">
+            <div
+              className="bg-accent h-full transition-all"
+              style={{ width: `${p.pct}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* MODE INFO */}
+      <div className="flex items-center gap-3 mt-6 p-4 text-sm card">
+        <span className="text-lg">📖</span>
+        <div>
+          <b>{m.n}</b> <span className="text-ink2">— {m.d}</span>
+        </div>
+      </div>
+
+      {/* DAFTAR ISI */}
+      <section className="mt-10">
         <p className="mb-3 lbl">Daftar isi</p>
         <div className="divide-y divide-line overflow-hidden card">
-          {book.bab.map((c, i) => {
+          {book.bab.map((ch, i) => {
             const prev =
-              c.isi
+              ch.isi
                 ?.find((b) => b.t === "p")
                 ?.v?.replace(/\{|\}|<[^>]+>/g, "") || "";
             return (
@@ -236,7 +267,7 @@ export default function BookDetail() {
                 </span>
                 <span className="min-w-0">
                   <span className="block font-medium group-hover:underline underline-offset-4">
-                    {c.judul}
+                    {ch.judul}
                   </span>
                   <span className="block opacity-0 group-hover:opacity-100 mt-0.5 text-ink2 text-sm transition-opacity">
                     {prev.slice(0, 130)}
@@ -253,7 +284,7 @@ export default function BookDetail() {
         </div>
       </section>
 
-      {/* ===== RATING & ULASAN ===== */}
+      {/* RATING & ULASAN */}
       <section className="mt-12 pb-10">
         <p className="mb-3 lbl">Rating & ulasan</p>
 
