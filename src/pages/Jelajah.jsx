@@ -156,13 +156,13 @@ export default function Jelajah() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Cari judul atau penulis…"
-            className="bg-white/95 mt-5 px-4 py-3 rounded-xl outline-none w-full max-w-md text-ink placeholder:text-ink2/70 text-sm"
+            className="bg-white/95 mt-5 px-4 py-3 rounded-xl outline-none w-full max-w-md text-gray-900 placeholder:text-gray-700/70 text-sm"
           />
         </div>
       </div>
 
       {/* ===== FILTER BAR (sticky) ===== */}
-      <div className="top-14 z-20 sticky flex flex-wrap items-center gap-2 shadow-sm p-3 card">
+      <div className="top-14 z-20 sticky flex flex-wrap items-center gap-2 bg-card/95 shadow-md backdrop-blur-md p-3 border border-line rounded-xl">
         <select
           value={urut}
           onChange={(e) => setParam("urut", e.target.value, "populer")}

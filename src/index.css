@@ -36,9 +36,6 @@
   .kbd {
     @apply px-1.5 py-0.5 border border-line rounded-md font-medium text-[11px] text-ink2;
   }
-  .card {
-    @apply bg-card border border-line rounded-2xl;
-  }
   .lbl {
     @apply text-ink2 text-xs uppercase tracking-[0.25em];
   }
