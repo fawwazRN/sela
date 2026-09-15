@@ -355,16 +355,6 @@ export default function IntroAward() {
             })}
           </div>
           <div className="ia-floor" />
-
-          <button
-            className="ia-cta"
-            style={{ "--d": ctaDelay + "s" }}
-            onClick={(e) => {
-              e.stopPropagation();
-              masuk();
-            }}>
-            Masuk ke Sela →
-          </button>
         </div>
 
         <span className="ia-skip">klik di mana saja untuk masuk</span>
