@@ -13,7 +13,7 @@ function parseMd(md) {
   const flush = () => {
     if (buf.length) {
       if (!cur) {
-        cur = { judul: "Pendahuluan", isi: [], ringkasan: null, kuis: null };
+        cur = { judul: "Pendahuluan", isi: [], ringkasan: null, kuis: [] };
         bab.push(cur);
       }
       const rawBab = buf.join("\n").trim();
@@ -30,7 +30,7 @@ function parseMd(md) {
         judul: t.replace(/^#\s+/, "").replace(/\*\*/g, "").replace(/\\/g, ""),
         isi: [],
         ringkasan: null,
-        kuis: null,
+        kuis: [], // ← ARRAY: semua @?? terkumpul, tidak ada yang ditimpa
       };
       bab.push(cur);
     } else if (/^%%\s?/.test(t)) {
@@ -54,7 +54,7 @@ function parseMd(md) {
           0,
           opts.findIndex((s) => s.endsWith("*")),
         );
-        cur.kuis = { q: q.replace(/\\/g, ""), o, a };
+        cur.kuis.push({ q: q.replace(/\\/g, ""), o, a }); // ← PUSH!
       }
     } else if (t === "") flush();
     else buf.push(l);
@@ -62,7 +62,7 @@ function parseMd(md) {
   flush();
   return bab.length
     ? bab
-    : [{ judul: "Tanpa Judul", isi: [], ringkasan: null, kuis: null }];
+    : [{ judul: "Tanpa Judul", isi: [], ringkasan: null, kuis: [] }];
 }
 
 const SISIP = [
@@ -150,10 +150,9 @@ export default function StudioEditor() {
     }, 0);
   };
 
-  /* ← LANGKAH 2: publish memakai targetId/targetSlug kalau ada —
+  /* publish memakai targetId/targetSlug kalau ada —
      edit buku yang sudah tayang MENIMPA buku yang sama
-     (slug & id tetap → progres pembaca tidak putus),
-     bukan membuat buku baru. */
+     (slug & id tetap → progres pembaca tidak putus) */
   const publish = () => {
     const penerbit = isAdmin ? penulis.trim() || PENERBIT_RESMI : user.name;
     addCustomBook({
@@ -203,7 +202,7 @@ export default function StudioEditor() {
           ))}
         </select>
         <div className="flex-1" />
-        {/* ← LANGKAH 2: penanda mode kolaborasi */}
+        {/* penanda mode kolaborasi */}
         {!draft.mine && (
           <span className="bg-accent/15 px-2 py-0.5 rounded text-[10px] text-accent uppercase tracking-wider">
             Mengedit draft {draft.ownerEmail || "penulis lain"}
@@ -239,8 +238,8 @@ export default function StudioEditor() {
         ))}
         <div className="flex-1" />
         <span className="text-ink2">
-          {bab.length} bab · {kata} kata · ±
-          {Math.max(1, Math.round(kata / 200))} mnt
+          {bab.length} bab · {kata} kata ·{" "}
+          {bab.reduce((a, c) => a + (c.kuis?.length || 0), 0)} soal kuis
         </span>
       </div>
 

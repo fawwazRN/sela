@@ -10,10 +10,12 @@ export default function Highlights() {
   const [flip, setFlip] = useState(false);
   const [dijawab, setDijawab] = useState(0);
 
+  /* kuis: array (baru) ATAU objek tunggal (lama) — semua soal jadi kartu */
   const quiz = books.flatMap((b) =>
-    b.bab.flatMap((c, ci) =>
-      c.kuis ? [{ book: b, ci, q: c.kuis.q, a: c.kuis.o[c.kuis.a] }] : [],
-    ),
+    b.bab.flatMap((c, ci) => {
+      const ks = !c.kuis ? [] : Array.isArray(c.kuis) ? c.kuis : [c.kuis];
+      return ks.map((k) => ({ book: b, ci, q: k.q, a: k.o[k.a] }));
+    }),
   );
   const cards = [
     ...highlights.map((h) => ({

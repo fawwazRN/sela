@@ -41,11 +41,16 @@ const babKeMd = (c) => {
     /* diagram tidak punya bentuk markdown — dilewati */
   });
   if (c.ringkasan) s += `%% ${c.ringkasan}\n\n`;
-  if (c.kuis)
-    s +=
-      `@?? ${c.kuis.q} | ` +
-      c.kuis.o.map((o, i) => o + (i === c.kuis.a ? "*" : "")).join(" | ") +
-      "\n\n";
+  /* kuis: array (baru) ATAU objek tunggal (lama) — semuanya direkonstruksi */
+  const ks = !c.kuis ? [] : Array.isArray(c.kuis) ? c.kuis : [c.kuis];
+  ks.forEach(
+    (k) =>
+      (s +=
+        `@?? ${k.q} | ` +
+        k.o.map((o, i) => o + (i === k.a ? "*" : "")).join(" | ") +
+        "\n"),
+  );
+  if (ks.length) s += "\n";
   return `# ${c.judul}\n\n` + s;
 };
 
@@ -96,9 +101,9 @@ export default function StudioList() {
     (b) => b.custom && (isAdmin || b.owner === user.email),
   );
 
-  /* ← LANGKAH 3: edit cerdas lintas admin.
-     - draft ada          → langsung buka, pastikan target terisi
-     - draft tidak ada    → bangun ulang dari buku ter-publish,
+  /* edit cerdas lintas admin:
+     - draft ada       → langsung buka, pastikan target terisi
+     - draft tidak ada → bangun ulang dari buku ter-publish,
        ID & target tetap → publish ulang MENIMPA buku yang sama */
   const editBook = (b) => {
     const draftId = b.slug.startsWith("studio-") ? b.slug.slice(7) : null;
@@ -185,7 +190,7 @@ export default function StudioList() {
             </span>
             <Link to={`/studio/${d.id}`} className="flex-1 min-w-0">
               <p className="font-medium text-sm truncate">{d.judul}</p>
-              {/* ← LANGKAH 3: penanda draft milik admin lain */}
+              {/* penanda draft milik admin lain */}
               <p className="text-ink2 text-xs">
                 {d.genre} · diubah {fmtDate(d.at)}
                 {!d.mine && (
@@ -235,7 +240,7 @@ export default function StudioList() {
                     {b.bab.length} bab · oleh {b.penulis} · {b.genre}
                   </p>
                 </Link>
-                {/* ← LANGKAH 3: Edit untuk SEMUA buku custom (admin) */}
+                {/* Edit untuk SEMUA buku custom (admin) */}
                 <button
                   onClick={() => editBook(b)}
                   className="text-xs hover:underline shrink-0">
