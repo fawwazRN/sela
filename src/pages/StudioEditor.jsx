@@ -17,7 +17,7 @@ function parseMd(md) {
         bab.push(cur);
       }
       const rawBab = buf.join("\n").trim();
-      if (!cur.raw) cur.raw = rawBab; // ← BARU: simpan markdown asli per bab
+      if (!cur.raw) cur.raw = rawBab; // markdown asli per bab — untuk edit ulang lintas perangkat
       cur.isi.push(...mdToBlocks(rawBab));
     }
     buf = [];
@@ -150,19 +150,21 @@ export default function StudioEditor() {
     }, 0);
   };
 
+  /* ← LANGKAH 2: publish memakai targetId/targetSlug kalau ada —
+     edit buku yang sudah tayang MENIMPA buku yang sama
+     (slug & id tetap → progres pembaca tidak putus),
+     bukan membuat buku baru. */
   const publish = () => {
     const penerbit = isAdmin ? penulis.trim() || PENERBIT_RESMI : user.name;
     addCustomBook({
-      id: "stu-" + uid(),
-      slug: "studio-" + draft.id,
+      id: draft.targetId || "stu-" + uid(),
+      slug: draft.targetSlug || "studio-" + draft.id,
       judul: draft.judul,
       penulis: penerbit,
       genre: draft.genre,
       durasi: Math.max(5, Math.round(kata / 200)),
       desc: `Ditulis di Studio Sela · ${bab.length} bab.`,
       custom: isAdmin ? PENERBIT_RESMI : "Studio",
-      /* ← DULU: raw: null. Sekarang raw DIPERTAHANKAN
-         supaya buku bisa diedit ulang dari perangkat mana pun */
       bab: bab.map((c) => ({ ...c })),
     });
     setPub(true);
@@ -201,6 +203,12 @@ export default function StudioEditor() {
           ))}
         </select>
         <div className="flex-1" />
+        {/* ← LANGKAH 2: penanda mode kolaborasi */}
+        {!draft.mine && (
+          <span className="bg-accent/15 px-2 py-0.5 rounded text-[10px] text-accent uppercase tracking-wider">
+            Mengedit draft {draft.ownerEmail || "penulis lain"}
+          </span>
+        )}
         <span
           className={`text-[11px] transition-opacity ${savedFlash ? "opacity-100 text-green-600" : "opacity-0"}`}>
           ✓ tersimpan

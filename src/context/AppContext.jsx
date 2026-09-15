@@ -30,11 +30,13 @@ export function AppProvider({ children }) {
      ARSITEKTUR:
      - Server (Supabase) = SUMBER KEBENARAN saat login
      - localStorage = CACHE saja (tema, font, tamu, paint instan)
-     - draft      → tabel `drafts`  (satu baris per draft)
+     - draft       → tabel `drafts`   (satu baris per draft)
      - statistik,
        rak, highlight,
-       progres    → tabel `user_data`
+       progres     → tabel `user_data`
      - buku tayang → tabel `books`
+     - kolaborasi  → admin bisa akses semua draft (RLS is_admin)
+     - pembaca     → 1 akun = 1 hit seumur akun (view_log + bump_unique)
      ============================================================ */
 
   const [user, setUser] = useState(() => LS("user"));
@@ -55,7 +57,7 @@ export function AppProvider({ children }) {
     SV("goal", v);
   };
 
-  /* draft: mulai dari cache, lalu DITIMPA data server saat login */
+  /* draft: mulai dari cache, DITIMPA data server saat login */
   const [drafts, setDrafts] = useState(() => LS("drafts") || []);
 
   /* ===== data global ===== */
@@ -96,7 +98,7 @@ export function AppProvider({ children }) {
   useEffect(() => SV("views", views), [views]);
   useEffect(() => {
     draftsRef.current = drafts;
-    SV("drafts", drafts); // cache
+    SV("drafts", drafts);
   }, [drafts]);
 
   /* ===== muat data global ===== */
@@ -268,7 +270,8 @@ export function AppProvider({ children }) {
 
   /* ============================================================
      SINKRON DRAFT  (tabel drafts — write-through, debounce 800ms)
-     ============================================================ */
+     /* ← LANGKAH 1: owner_email ikut dikirim supaya kepemilikan
+        tetap milik penulis asli walau admin lain yang mengedit */
   const flushDrafts = () => {
     const u = userRef.current;
     if (!HAS_DB || !u || !dirtyDrafts.current.size) return;
@@ -278,7 +281,8 @@ export function AppProvider({ children }) {
       .filter((d) => ids.includes(d.id))
       .map((d) => ({
         id: d.id,
-        user_id: u.id,
+        user_id: d.owner || u.id,
+        owner_email: d.ownerEmail || u.email,
         judul: d.judul,
         genre: d.genre,
         md: d.md,
@@ -291,11 +295,13 @@ export function AppProvider({ children }) {
       .then(({ error }) => {
         if (error) {
           console.error("Draft gagal ke server:", error);
-          rows.forEach((r) => dirtyDrafts.current.add(r.id)); // ulangi nanti
+          rows.forEach((r) => dirtyDrafts.current.add(r.id));
         }
       });
   };
 
+  /* ← LANGKAH 1: admin menarik SEMUA draft; user biasa hanya miliknya.
+     Draft diberi metadata owner/ownerEmail/mine untuk UI kolaborasi. */
   const pullSync = async (su) => {
     if (!HAS_DB || !su || pulledEmail.current === su.email) return;
     pulledEmail.current = su.email;
@@ -324,12 +330,15 @@ export function AppProvider({ children }) {
       if (d.goal && Number(d.goal) > 0) setGoalState(Number(d.goal));
     }
 
-    /* --- 2. draft dari tabel drafts --- */
-    const { data: rows, error: dErr } = await supabase
+    /* --- 2. draft: admin = semua; user biasa = miliknya --- */
+    const { data: amAdmin, error: aErr } = await supabase.rpc("is_admin");
+    if (aErr) console.warn("is_admin tidak tersedia:", aErr.message);
+    let q = supabase
       .from("drafts")
       .select("*")
-      .eq("user_id", su.id)
       .order("updated_at", { ascending: false });
+    if (!amAdmin) q = q.eq("user_id", su.id);
+    const { data: rows, error: dErr } = await q;
     if (dErr) {
       console.error("Pull draft gagal:", dErr);
       gagal(dErr);
@@ -342,11 +351,12 @@ export function AppProvider({ children }) {
       genre: r.genre,
       md: r.md || "",
       at: r.updated_at,
+      owner: r.user_id,
+      ownerEmail: r.owner_email,
+      mine: r.user_id === su.id,
     }));
 
-    /* --- 3. RESCUE sekali jalan: draft yang hanya ada di
-       perangkat ini (cache lama / versi lama / user_data versi
-       lama) diunggah ke server supaya ikut tersinkron --- */
+    /* --- 3. RESCUE sekali jalan: draft yang hanya ada di perangkat ini --- */
     const idServer = new Set(serverDrafts.map((d) => d.id));
     const lokalOnly = (LS("drafts") || []).filter((d) => !idServer.has(d.id));
     const legacy = (data?.data?.drafts || []).filter(
@@ -358,6 +368,7 @@ export function AppProvider({ children }) {
         semuaRescue.map((d) => ({
           id: d.id,
           user_id: su.id,
+          owner_email: su.email,
           judul: d.judul,
           genre: d.genre,
           md: d.md || "",
@@ -367,12 +378,15 @@ export function AppProvider({ children }) {
       if (upErr) console.error("Rescue draft gagal:", upErr);
     }
 
-    setDrafts([...semuaRescue, ...serverDrafts]);
-    skipPush.current = true; // baru ditarik, jangan push balik
+    setDrafts([
+      ...semuaRescue.map((d) => ({ ...d, mine: true })),
+      ...serverDrafts,
+    ]);
+    skipPush.current = true;
     hydrated.current = true;
   };
 
-  /* auto-push statistik (debounce 1.5 dtk) — setelah pull sukses */
+  /* auto-push statistik (debounce 1.5 dtk) */
   useEffect(() => {
     if (!HAS_DB || !user || !hydrated.current) return;
     if (skipPush.current) {
@@ -384,7 +398,7 @@ export function AppProvider({ children }) {
     // eslint-disable-next-line
   }, [progress, shelf, highlights, bookTime, readlog, finished, goal, user]);
 
-  /* auto-push draft (debounce 800 dtk setelah ketikan berhenti) */
+  /* auto-push draft (debounce 800ms) */
   useEffect(() => {
     if (!HAS_DB || !user || !hydrated.current) return;
     if (!dirtyDrafts.current.size) return;
@@ -393,7 +407,7 @@ export function AppProvider({ children }) {
     // eslint-disable-next-line
   }, [drafts, user]);
 
-  /* flush semua saat tab ditutup */
+  /* flush saat tab ditutup */
   useEffect(() => {
     if (!HAS_DB) return;
     const f = () => {
@@ -407,7 +421,7 @@ export function AppProvider({ children }) {
     // eslint-disable-next-line
   }, [progress, shelf, highlights, bookTime, readlog, finished, goal, drafts]);
 
-  /* retry kalau pull pernah gagal (offline dkk) */
+  /* retry kalau pull pernah gagal */
   useEffect(() => {
     if (!HAS_DB) return;
     const f = () => {
@@ -418,9 +432,7 @@ export function AppProvider({ children }) {
     return () => window.removeEventListener("focus", f);
   }, []);
 
-  /* ============================================================
-     AKSI DATA PRIBADI (state dulu → otomatis terdorong ke server)
-     ============================================================ */
+  /* ===== aksi data pribadi ===== */
   const saveProgress = (bookId, chap, pct) =>
     setProgress((p) => ({ ...p, [bookId]: { chap, pct, at: Date.now() } }));
   const moveTo = (bookId, list) =>
@@ -453,7 +465,7 @@ export function AppProvider({ children }) {
     }));
   };
 
-  /* draft: tulis lokal + tandai kotor → 800ms kemudian otomatis naik ke server */
+  /* draft: tulis lokal + tandai kotor → 800ms kemudian naik ke server */
   const saveDraft = (d) => {
     const id = d.id || uid();
     setDrafts((ds) => {
@@ -478,8 +490,16 @@ export function AppProvider({ children }) {
   };
 
   /* ===== buku global ===== */
+  /* ← LANGKAH 1: publish ulang tidak mencuri kepemilikan —
+     owner asli dipertahankan, penting untuk kolaborasi admin */
   const addCustomBook = (b) => {
-    const withOwner = { ...b, owner: user?.email || null };
+    const existing = [...customBooks, ...dbBooks].find(
+      (x) => x.slug === b.slug,
+    );
+    const withOwner = {
+      ...b,
+      owner: existing?.owner || user?.email || null,
+    };
     setCustomBooks((bs) => [
       withOwner,
       ...bs.filter((x) => x.slug !== withOwner.slug),
@@ -569,14 +589,20 @@ export function AppProvider({ children }) {
   };
 
   /* ===== VIEWS ===== */
-  const bumpView = (slug) => {
+  /* ← LANGKAH 1: akun dihitung SEKALI seumur akun (server-side
+     via view_log+bump_unique); tamu tetap dihitung per sesi */
+  const bumpView = async (slug) => {
     if (!HAS_DB) return;
     const k = "sela.viewed." + slug;
     if (sessionStorage.getItem(k)) return;
     sessionStorage.setItem(k, "1");
-    supabase.rpc("increment_views", { bslug: slug }).then(({ error }) => {
+    if (user) {
+      const { data } = await supabase.rpc("bump_unique", { bslug: slug });
+      if (data) setViews((v) => ({ ...v, [slug]: (v[slug] || 0) + 1 }));
+    } else {
+      const { error } = await supabase.rpc("increment_views", { bslug: slug });
       if (!error) setViews((v) => ({ ...v, [slug]: (v[slug] || 0) + 1 }));
-    });
+    }
   };
 
   /* ===== REVIEWS ===== */

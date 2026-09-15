@@ -4,10 +4,10 @@ import { fmtDate } from "../lib/utils";
 
 /* ===== bangun ulang markdown satu bab dari buku ter-publish ===== */
 const babKeMd = (c) => {
-  /* 1) raw tersimpan (publish versi baru) → 100% akurat */
+  /* raw tersimpan (publish versi baru) → 100% akurat */
   if (c.raw) return `# ${c.judul}\n\n${c.raw}`;
 
-  /* 2) rekonstruksi dari blok (publish versi lama) */
+  /* rekonstruksi dari blok (publish versi lama) */
   let s = "";
   (c.isi || []).forEach((bl) => {
     if (bl.t === "p") s += bl.v + "\n\n";
@@ -96,22 +96,25 @@ export default function StudioList() {
     (b) => b.custom && (isAdmin || b.owner === user.email),
   );
 
-  /* ===== EDIT CERDAS: pakai draft kalau ada, rekonstruksi kalau hilang ===== */
+  /* ← LANGKAH 3: edit cerdas lintas admin.
+     - draft ada          → langsung buka, pastikan target terisi
+     - draft tidak ada    → bangun ulang dari buku ter-publish,
+       ID & target tetap → publish ulang MENIMPA buku yang sama */
   const editBook = (b) => {
     const draftId = b.slug.startsWith("studio-") ? b.slug.slice(7) : null;
 
-    /* draft ada di perangkat ini → langsung buka */
     if (draftId && drafts.some((d) => d.id === draftId)) {
+      const d = drafts.find((x) => x.id === draftId);
+      if (!d.targetId) saveDraft({ ...d, targetId: b.id, targetSlug: b.slug });
       nav(`/studio/${draftId}`);
       return;
     }
 
-    /* draft hilang (dibuat di perangkat lain / belum tersinkron)
-       → bangun ulang dari buku ter-publish, dengan ID yang SAMA
-         supaya publish ulang menimpa buku yang sama, bukan dobel */
     const md = b.bab.map(babKeMd).join("\n\n");
     const id = saveDraft({
       ...(draftId ? { id: draftId } : {}),
+      targetId: b.id,
+      targetSlug: b.slug,
       judul: b.judul,
       genre: b.genre,
       md,
@@ -182,8 +185,14 @@ export default function StudioList() {
             </span>
             <Link to={`/studio/${d.id}`} className="flex-1 min-w-0">
               <p className="font-medium text-sm truncate">{d.judul}</p>
+              {/* ← LANGKAH 3: penanda draft milik admin lain */}
               <p className="text-ink2 text-xs">
                 {d.genre} · diubah {fmtDate(d.at)}
+                {!d.mine && (
+                  <span className="ml-1 font-semibold text-accent">
+                    · draft {d.ownerEmail || "penulis lain"}
+                  </span>
+                )}
               </p>
             </Link>
             <Link
@@ -226,13 +235,12 @@ export default function StudioList() {
                     {b.bab.length} bab · oleh {b.penulis} · {b.genre}
                   </p>
                 </Link>
-                {b.slug.startsWith("studio-") && (
-                  <button
-                    onClick={() => editBook(b)}
-                    className="text-xs hover:underline shrink-0">
-                    Edit
-                  </button>
-                )}
+                {/* ← LANGKAH 3: Edit untuk SEMUA buku custom (admin) */}
+                <button
+                  onClick={() => editBook(b)}
+                  className="text-xs hover:underline shrink-0">
+                  Edit
+                </button>
                 <button
                   onClick={() => {
                     if (confirm(`Hapus "${b.judul}" dari katalog?`))
@@ -247,6 +255,7 @@ export default function StudioList() {
           <p className="mt-2 text-[11px] text-ink2">
             "Edit" membuka draft dari buku ter-publish — kalau draftnya tidak
             ada di perangkat ini, draft dibangun ulang otomatis dari bukunya.
+            Publish ulang menimpa buku yang sama.
           </p>
         </>
       )}
