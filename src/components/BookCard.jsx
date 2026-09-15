@@ -14,7 +14,7 @@ export default function BookCard({ book }) {
   return (
     <Link
       to={`/buku/${book.slug}`}
-      className="group relative hover:shadow-[0_10px_28px_rgba(0,0,0,0.14)] p-3 hover:border-accent/50 transition-all hover:-translate-y-1 duration-300 card fadein">
+      className="group relative bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] hover:shadow-[0_10px_28px_rgba(0,0,0,0.14)] p-3 rounded-2xl transition-all hover:-translate-y-1 duration-300 fadein">
       {/* pita warna genre tipis di atas sampul — bukan border penghalang */}
       <div className="relative">
         <span

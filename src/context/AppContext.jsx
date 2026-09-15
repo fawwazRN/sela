@@ -26,25 +26,37 @@ const KUNCI_PRIBADI = [
 ];
 
 export function AppProvider({ children }) {
-  /* ===== data pribadi (lokal + tersinkron) ===== */
+  /* ============================================================
+     ARSITEKTUR:
+     - Server (Supabase) = SUMBER KEBENARAN saat login
+     - localStorage = CACHE saja (tema, font, tamu, paint instan)
+     - draft      → tabel `drafts`  (satu baris per draft)
+     - statistik,
+       rak, highlight,
+       progres    → tabel `user_data`
+     - buku tayang → tabel `books`
+     ============================================================ */
+
   const [user, setUser] = useState(() => LS("user"));
   const [theme, setTheme] = useState(() => LS("theme") || "terang");
   const [progress, setProgress] = useState(() => LS("progress") || {});
   const [shelf, setShelf] = useState(() => LS("shelf") || KOSONG);
   const [highlights, setHighlights] = useState(() => LS("highlights") || []);
-  const [drafts, setDrafts] = useState(() => LS("drafts") || []);
   const [readlog, setReadlog] = useState(() => LS("readlog") || {});
   const [finished, setFinished] = useState(() => LS("finished") || {});
   const [bookTime, setBookTime] = useState(() => LS("bookTime") || {});
   const [goal, setGoalState] = useState(() => {
     const g = Number(LS("goal"));
-    return g > 0 ? g : 20; // ← jaring aman: tak pernah 0/NaN
+    return g > 0 ? g : 20;
   });
   const setGoal = (m) => {
     const v = Number(m) > 0 ? Number(m) : 20;
     setGoalState(v);
     SV("goal", v);
   };
+
+  /* draft: mulai dari cache, lalu DITIMPA data server saat login */
+  const [drafts, setDrafts] = useState(() => LS("drafts") || []);
 
   /* ===== data global ===== */
   const [customBooks, setCustomBooks] = useState(() => LS("customBooks") || []);
@@ -53,10 +65,19 @@ export function AppProvider({ children }) {
   const [glos, setGlos] = useState(() => LS("glos") || DIK);
   const [views, setViews] = useState(() => LS("views") || {});
   const [isAdmin, setIsAdmin] = useState(false);
+
   const hydrated = useRef(false);
   const pulledEmail = useRef(null);
+  const skipPush = useRef(false);
+  const userRef = useRef(null);
+  const draftsRef = useRef(drafts);
+  const dirtyDrafts = useRef(new Set());
 
-  /* ===== persist lokal ===== */
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+
+  /* ===== persist lokal (peran: CACHE) ===== */
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     SV("theme", theme);
@@ -64,7 +85,6 @@ export function AppProvider({ children }) {
   useEffect(() => SV("progress", progress), [progress]);
   useEffect(() => SV("shelf", shelf), [shelf]);
   useEffect(() => SV("highlights", highlights), [highlights]);
-  useEffect(() => SV("drafts", drafts), [drafts]);
   useEffect(() => SV("readlog", readlog), [readlog]);
   useEffect(() => SV("finished", finished), [finished]);
   useEffect(() => SV("bookTime", bookTime), [bookTime]);
@@ -74,6 +94,10 @@ export function AppProvider({ children }) {
   useEffect(() => SV("hiddenIds", hiddenIds), [hiddenIds]);
   useEffect(() => SV("glos", glos), [glos]);
   useEffect(() => SV("views", views), [views]);
+  useEffect(() => {
+    draftsRef.current = drafts;
+    SV("drafts", drafts); // cache
+  }, [drafts]);
 
   /* ===== muat data global ===== */
   useEffect(() => {
@@ -119,7 +143,6 @@ export function AppProvider({ children }) {
     setIsAdmin(!!data);
   };
 
-  /* kosongkan data pribadi lokal saat ganti pemilik perangkat */
   const bersihkanPribadi = () => {
     setProgress({});
     setShelf(KOSONG);
@@ -127,7 +150,9 @@ export function AppProvider({ children }) {
     setBookTime({});
     setReadlog({});
     setFinished({});
+    setDrafts([]);
     KUNCI_PRIBADI.forEach((k) => RM(k));
+    RM("drafts");
   };
 
   const applyUser = (su) => {
@@ -137,13 +162,10 @@ export function AppProvider({ children }) {
       email: su.email,
       name: lama?.email === su.email ? lama.name : su.email.split("@")[0],
     };
-
-    /* pembatas antar akun di perangkat yang sama */
     if (LS("dataOwner") !== su.email) {
       bersihkanPribadi();
       SV("dataOwner", su.email);
     }
-
     setUser(u);
     SV("user", u);
     cekAdmin(su.email);
@@ -162,6 +184,7 @@ export function AppProvider({ children }) {
         setIsAdmin(false);
         RM("user");
         pulledEmail.current = null;
+        hydrated.current = false;
       }
     });
     return () => sub.data.subscription.unsubscribe();
@@ -187,11 +210,17 @@ export function AppProvider({ children }) {
     if (error) throw error;
   };
   const logout = async () => {
+    if (HAS_DB && userRef.current && hydrated.current) {
+      pushSync();
+      flushDrafts();
+    }
     if (HAS_DB) await supabase.auth.signOut();
     setUser(null);
     setIsAdmin(false);
+    setDrafts([]);
     RM("user");
     pulledEmail.current = null;
+    hydrated.current = false;
   };
 
   /* ===== manajemen admin ===== */
@@ -213,13 +242,16 @@ export function AppProvider({ children }) {
     if (error) throw error;
   };
 
-  /* ===== SINKRON ANTAR PERANGKAT ===== */
-  const pushSync = (uidArg) => {
-    if (!HAS_DB || !user) return;
+  /* ============================================================
+     SINKRON STATISTIK & RAK  (tabel user_data)
+     ============================================================ */
+  const pushSync = () => {
+    const u = userRef.current;
+    if (!HAS_DB || !u) return;
     supabase
       .from("user_data")
       .upsert({
-        user_id: uidArg || user.id,
+        user_id: u.id,
         data: {
           progress,
           shelf,
@@ -231,18 +263,56 @@ export function AppProvider({ children }) {
         },
         updated_at: new Date().toISOString(),
       })
-      .then(({ error }) => error && console.error(error));
+      .then(({ error }) => error && console.error("Push gagal:", error));
+  };
+
+  /* ============================================================
+     SINKRON DRAFT  (tabel drafts — write-through, debounce 800ms)
+     ============================================================ */
+  const flushDrafts = () => {
+    const u = userRef.current;
+    if (!HAS_DB || !u || !dirtyDrafts.current.size) return;
+    const ids = [...dirtyDrafts.current];
+    dirtyDrafts.current.clear();
+    const rows = draftsRef.current
+      .filter((d) => ids.includes(d.id))
+      .map((d) => ({
+        id: d.id,
+        user_id: u.id,
+        judul: d.judul,
+        genre: d.genre,
+        md: d.md,
+        updated_at: new Date().toISOString(),
+      }));
+    if (!rows.length) return;
+    supabase
+      .from("drafts")
+      .upsert(rows)
+      .then(({ error }) => {
+        if (error) {
+          console.error("Draft gagal ke server:", error);
+          rows.forEach((r) => dirtyDrafts.current.add(r.id)); // ulangi nanti
+        }
+      });
   };
 
   const pullSync = async (su) => {
     if (!HAS_DB || !su || pulledEmail.current === su.email) return;
     pulledEmail.current = su.email;
     hydrated.current = false;
-    const { data } = await supabase
+
+    /* --- 1. statistik & rak --- */
+    const { data, error } = await supabase
       .from("user_data")
       .select("data")
       .eq("user_id", su.id)
       .maybeSingle();
+    if (error) {
+      console.error("Pull gagal:", error);
+      gagal(error);
+      pulledEmail.current = null;
+      return;
+    }
     if (data?.data) {
       const d = data.data;
       if (d.progress) setProgress(d.progress);
@@ -253,18 +323,104 @@ export function AppProvider({ children }) {
       if (d.finished) setFinished(d.finished);
       if (d.goal && Number(d.goal) > 0) setGoalState(Number(d.goal));
     }
+
+    /* --- 2. draft dari tabel drafts --- */
+    const { data: rows, error: dErr } = await supabase
+      .from("drafts")
+      .select("*")
+      .eq("user_id", su.id)
+      .order("updated_at", { ascending: false });
+    if (dErr) {
+      console.error("Pull draft gagal:", dErr);
+      gagal(dErr);
+      pulledEmail.current = null;
+      return;
+    }
+    const serverDrafts = (rows || []).map((r) => ({
+      id: r.id,
+      judul: r.judul,
+      genre: r.genre,
+      md: r.md || "",
+      at: r.updated_at,
+    }));
+
+    /* --- 3. RESCUE sekali jalan: draft yang hanya ada di
+       perangkat ini (cache lama / versi lama / user_data versi
+       lama) diunggah ke server supaya ikut tersinkron --- */
+    const idServer = new Set(serverDrafts.map((d) => d.id));
+    const lokalOnly = (LS("drafts") || []).filter((d) => !idServer.has(d.id));
+    const legacy = (data?.data?.drafts || []).filter(
+      (d) => !idServer.has(d.id) && !lokalOnly.some((l) => l.id === d.id),
+    );
+    const semuaRescue = [...lokalOnly, ...legacy];
+    if (semuaRescue.length) {
+      const { error: upErr } = await supabase.from("drafts").upsert(
+        semuaRescue.map((d) => ({
+          id: d.id,
+          user_id: su.id,
+          judul: d.judul,
+          genre: d.genre,
+          md: d.md || "",
+          updated_at: new Date().toISOString(),
+        })),
+      );
+      if (upErr) console.error("Rescue draft gagal:", upErr);
+    }
+
+    setDrafts([...semuaRescue, ...serverDrafts]);
+    skipPush.current = true; // baru ditarik, jangan push balik
     hydrated.current = true;
   };
 
-  /* auto-push (debounce 1.5 dtk) */
+  /* auto-push statistik (debounce 1.5 dtk) — setelah pull sukses */
   useEffect(() => {
     if (!HAS_DB || !user || !hydrated.current) return;
+    if (skipPush.current) {
+      skipPush.current = false;
+      return;
+    }
     const t = setTimeout(() => pushSync(), 1500);
     return () => clearTimeout(t);
     // eslint-disable-next-line
   }, [progress, shelf, highlights, bookTime, readlog, finished, goal, user]);
 
-  /* ===== baca pribadi ===== */
+  /* auto-push draft (debounce 800 dtk setelah ketikan berhenti) */
+  useEffect(() => {
+    if (!HAS_DB || !user || !hydrated.current) return;
+    if (!dirtyDrafts.current.size) return;
+    const t = setTimeout(() => flushDrafts(), 800);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line
+  }, [drafts, user]);
+
+  /* flush semua saat tab ditutup */
+  useEffect(() => {
+    if (!HAS_DB) return;
+    const f = () => {
+      if (userRef.current && hydrated.current) {
+        pushSync();
+        flushDrafts();
+      }
+    };
+    window.addEventListener("beforeunload", f);
+    return () => window.removeEventListener("beforeunload", f);
+    // eslint-disable-next-line
+  }, [progress, shelf, highlights, bookTime, readlog, finished, goal, drafts]);
+
+  /* retry kalau pull pernah gagal (offline dkk) */
+  useEffect(() => {
+    if (!HAS_DB) return;
+    const f = () => {
+      const u = LS("user");
+      if (u?.id && !hydrated.current) pullSync(u);
+    };
+    window.addEventListener("focus", f);
+    return () => window.removeEventListener("focus", f);
+  }, []);
+
+  /* ============================================================
+     AKSI DATA PRIBADI (state dulu → otomatis terdorong ke server)
+     ============================================================ */
   const saveProgress = (bookId, chap, pct) =>
     setProgress((p) => ({ ...p, [bookId]: { chap, pct, at: Date.now() } }));
   const moveTo = (bookId, list) =>
@@ -296,16 +452,30 @@ export function AppProvider({ children }) {
       selesai: s.selesai.includes(id) ? s.selesai : [...s.selesai, id],
     }));
   };
+
+  /* draft: tulis lokal + tandai kotor → 800ms kemudian otomatis naik ke server */
   const saveDraft = (d) => {
     const id = d.id || uid();
-    setDrafts((ds) =>
-      d.id
-        ? ds.map((x) => (x.id === d.id ? { ...x, ...d } : x))
-        : [{ id, at: today(), ...d }, ...ds],
-    );
+    setDrafts((ds) => {
+      const ada = ds.some((x) => x.id === id);
+      return ada
+        ? ds.map((x) => (x.id === id ? { ...x, ...d } : x))
+        : [{ id, at: today(), ...d }, ...ds];
+    });
+    dirtyDrafts.current.add(id);
     return id;
   };
-  const removeDraft = (id) => setDrafts((ds) => ds.filter((d) => d.id !== id));
+  const removeDraft = (id) => {
+    setDrafts((ds) => ds.filter((d) => d.id !== id));
+    dirtyDrafts.current.delete(id);
+    const u = userRef.current;
+    if (HAS_DB && u)
+      supabase
+        .from("drafts")
+        .delete()
+        .eq("id", id)
+        .then(({ error }) => error && gagal(error));
+  };
 
   /* ===== buku global ===== */
   const addCustomBook = (b) => {

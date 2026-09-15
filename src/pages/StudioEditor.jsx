@@ -16,7 +16,9 @@ function parseMd(md) {
         cur = { judul: "Pendahuluan", isi: [], ringkasan: null, kuis: null };
         bab.push(cur);
       }
-      cur.isi.push(...mdToBlocks(buf.join("\n").trim()));
+      const rawBab = buf.join("\n").trim();
+      if (!cur.raw) cur.raw = rawBab; // ← BARU: simpan markdown asli per bab
+      cur.isi.push(...mdToBlocks(rawBab));
     }
     buf = [];
   };
@@ -159,7 +161,9 @@ export default function StudioEditor() {
       durasi: Math.max(5, Math.round(kata / 200)),
       desc: `Ditulis di Studio Sela · ${bab.length} bab.`,
       custom: isAdmin ? PENERBIT_RESMI : "Studio",
-      bab: bab.map((c) => ({ ...c, raw: null })),
+      /* ← DULU: raw: null. Sekarang raw DIPERTAHANKAN
+         supaya buku bisa diedit ulang dari perangkat mana pun */
+      bab: bab.map((c) => ({ ...c })),
     });
     setPub(true);
     setTimeout(() => setPub(false), 4000);
@@ -168,7 +172,7 @@ export default function StudioEditor() {
   return (
     <div className="flex flex-col bg-paper h-screen">
       {/* ===== HEADER ===== */}
-      <header className="flex flex-wrap items-center gap-2.5 bg-card px-4 py-2.5 border-line border-b">
+      <header className="flex flex-wrap items-center gap-2.5 bg-paper px-4 py-2.5 border-line border-b">
         <Link to="/studio" className="!px-3 !py-1.5 text-xs btn btn-o shrink-0">
           ← Studio
         </Link>
@@ -214,7 +218,7 @@ export default function StudioEditor() {
       </header>
 
       {/* ===== TOOLBAR ===== */}
-      <div className="flex flex-wrap items-center gap-1.5 bg-card px-4 py-1.5 border-line border-b text-[11px]">
+      <div className="flex flex-wrap items-center gap-1.5 bg-paper px-4 py-1.5 border-line border-b text-[11px]">
         <span className="mr-1 text-ink2">Sisip:</span>
         {SISIP.map(([lbl, nm, snip]) => (
           <button
@@ -255,14 +259,14 @@ export default function StudioEditor() {
           value={draft.md}
           onChange={(e) => upd({ md: e.target.value })}
           spellCheck={false}
-          className={`${pane === "lihat" ? "hidden md:block" : ""} h-full w-full resize-none bg-card p-5 font-mono text-[13px] leading-relaxed outline-none border-r border-line`}
+          className={`${pane === "lihat" ? "hidden md:block" : ""} h-full w-full resize-none bg-paper p-5 font-mono text-[13px] leading-relaxed outline-none border-r border-line`}
           placeholder={"# Bab Satu\n\nTulis di sini…"}
         />
 
         {/* PRATINJAU — live terjamin via versi */}
         <div
           className={`${pane === "tulis" ? "hidden md:block" : ""} h-full flex flex-col min-h-0 bg-paper`}>
-          <div className="flex items-center gap-2 bg-card/50 px-5 py-2 border-line border-b">
+          <div className="flex items-center gap-2 bg-paper/50 px-5 py-2 border-line border-b">
             <span className="!text-[10px] lbl">Pratinjau langsung</span>
             <span className="bg-green-500 rounded-full w-1.5 h-1.5 animate-pulse" />
             <div className="flex-1" />

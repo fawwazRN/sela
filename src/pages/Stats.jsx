@@ -281,7 +281,7 @@ export default function Stats() {
       </h1>
 
       {/* ===== TARGET HARIAN ===== */}
-      <div className="flex items-center gap-5 mt-6 p-5 card">
+      <div className="flex items-center gap-5 bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] mt-6 p-5 border border-line rounded-2xl">
         <Ring p={pTarget} />
         <div className="min-w-0">
           <p className="font-display font-semibold text-lg">
@@ -311,7 +311,9 @@ export default function Stats() {
           ["Hari beruntun", streak + " hari"],
           ["Buku selesai", doneBooks.length + " buku"],
         ].map(([t, v]) => (
-          <div key={t} className="p-4 text-center card">
+          <div
+            key={t}
+            className="bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] p-4 border border-line rounded-2xl text-center">
             <p className="font-display font-bold text-2xl">{v}</p>
             <p className="mt-1 text-[11px] text-ink2">{t}</p>
           </div>
@@ -319,7 +321,7 @@ export default function Stats() {
       </div>
 
       <p className="mt-10 mb-3 lbl">84 hari terakhir</p>
-      <div className="p-4 card">
+      <div className="bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] p-4 border border-line rounded-2xl">
         <div className="gap-1 grid grid-cols-7 w-fit">
           {cells.map((c) => (
             <div
@@ -339,7 +341,9 @@ export default function Stats() {
         {doneBooks.map((b) => {
           const m = bookTime[b.id] ? Math.round(bookTime[b.id] / 60) : null;
           return (
-            <div key={b.id} className="flex items-center gap-4 p-4 card">
+            <div
+              key={b.id}
+              className="flex items-center gap-4 bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] p-4 border border-line rounded-2xl">
               <div className="flex-1 min-w-0">
                 <p className="font-medium truncate">{b.judul}</p>
                 <p className="text-ink2 text-xs">

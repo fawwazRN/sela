@@ -96,7 +96,9 @@ export default function Highlights() {
               </div>
               <div className="space-y-2">
                 {daftar.map((h) => (
-                  <div key={h.id} className="relative p-4 overflow-hidden card">
+                  <div
+                    key={h.id}
+                    className="relative bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] p-4 border border-line rounded-2xl overflow-hidden">
                     <span className="top-0 bottom-0 left-0 absolute bg-accent/40 w-0.5" />
                     <div className="flex justify-between items-center gap-3">
                       <Link
@@ -124,7 +126,7 @@ export default function Highlights() {
             </div>
           ))}
           {highlights.length === 0 && (
-            <div className="p-10 text-center card">
+            <div className="bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] p-10 border border-line rounded-2xl text-center">
               <p className="font-display text-lg">Belum ada highlight.</p>
               <p className="mt-2 text-ink2 text-sm">
                 Saat membaca, ketuk kata mana pun → “Highlight paragraf ini”.
@@ -139,7 +141,7 @@ export default function Highlights() {
       ) : (
         <div className="mt-8 pb-10">
           {!card ? (
-            <div className="p-10 text-center card">
+            <div className="bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] p-10 border border-line rounded-2xl text-center">
               <p className="font-display text-lg">Belum ada kartu.</p>
               <p className="mt-2 text-ink2 text-sm">
                 Highlight & kuis dari buku akan otomatis jadi kartu di sini.
@@ -175,7 +177,7 @@ export default function Highlights() {
                   }}>
                   {/* sisi depan */}
                   <span
-                    className="absolute inset-0 flex flex-col justify-center items-center p-8 text-center card"
+                    className="absolute inset-0 flex flex-col justify-center items-center bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] p-8 border border-line rounded-2xl text-center"
                     style={{ backfaceVisibility: "hidden" }}>
                     <span className="top-4 absolute lbl">
                       {card.jenis === "kuis"
@@ -191,11 +193,11 @@ export default function Highlights() {
                   </span>
                   {/* sisi belakang */}
                   <span
-                    className="absolute inset-0 flex flex-col justify-center items-center p-8 text-center card"
+                    className="absolute inset-0 flex flex-col justify-center items-center bg-paper p-8 border border-line rounded-2xl text-center"
                     style={{
                       backfaceVisibility: "hidden",
                       transform: "rotateY(180deg)",
-                      background: "var(--c-card)",
+                      background: "var(--c-paper)",
                       boxShadow: "inset 0 0 0 2px var(--c-accent)",
                     }}>
                     <span className="top-4 absolute lbl">Jawaban</span>

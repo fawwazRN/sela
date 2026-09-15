@@ -181,7 +181,7 @@ export default function CommandPalette({ open, onClose }) {
       className="z-50 fixed inset-0 flex justify-center items-start bg-black/50 backdrop-blur-sm px-4 pt-[10vh]"
       onClick={onClose}>
       <div
-        className="shadow-2xl w-full max-w-xl overflow-hidden card fadein"
+        className="bg-paper shadow-[0_12px_32px_rgba(26,24,21,0.16)] border border-line rounded-2xl w-full max-w-xl overflow-hidden fadein"
         onClick={(e) => e.stopPropagation()}>
         {/* INPUT */}
         <div className="flex items-center gap-3 px-5 py-4 border-line border-b">

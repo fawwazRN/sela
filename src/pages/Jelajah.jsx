@@ -162,7 +162,7 @@ export default function Jelajah() {
       </div>
 
       {/* ===== FILTER BAR (sticky) ===== */}
-      <div className="top-14 z-20 sticky flex flex-wrap items-center gap-2 bg-card/95 shadow-md backdrop-blur-md p-3 border border-line rounded-xl">
+      <div className="top-14 z-20 sticky flex flex-wrap items-center gap-2 bg-paper/95 shadow-md backdrop-blur-md p-3 border border-line rounded-xl">
         <select
           value={urut}
           onChange={(e) => setParam("urut", e.target.value, "populer")}
@@ -261,7 +261,7 @@ export default function Jelajah() {
               <Link
                 key={b.id}
                 to={`/buku/${b.slug}`}
-                className="relative flex items-center gap-4 p-3 hover:border-ink overflow-hidden transition-colors card">
+                className="relative flex items-center gap-4 p-3 overflow-hidden transition-colors">
                 <span
                   className="top-0 bottom-0 left-0 absolute w-1"
                   style={{ background: c }}

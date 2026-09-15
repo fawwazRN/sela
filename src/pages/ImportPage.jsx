@@ -210,10 +210,10 @@ export default function ImportPage() {
         }}
         onDragLeave={() => setDragOver(false)}
         onDrop={onDrop}
-        className={`card grid place-items-center text-center py-14 cursor-pointer transition-all ${
+        className={`bg-paper border rounded-2xl shadow-[0_2px_10px_rgba(26,24,21,0.05)] grid place-items-center text-center py-14 cursor-pointer transition-all ${
           dragOver
-            ? "border-accent border-2 bg-accent/5 scale-[1.01]"
-            : "border-dashed hover:border-ink"
+            ? "border-2 border-accent bg-accent/5 scale-[1.01]"
+            : "border-line border-dashed hover:border-ink"
         }`}>
         <input
           type="file"

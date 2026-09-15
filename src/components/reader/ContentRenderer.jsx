@@ -58,7 +58,7 @@ function RichPara({ raw, big }) {
 function Diagram({ v }) {
   const [on, setOn] = useState(false);
   return (
-    <div className="my-6 p-5 card">
+    <div className="bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] my-6 p-5 border border-line rounded-2xl">
       <p className="mb-3 lbl">{v.label}</p>
       <div className="flex flex-wrap items-center gap-2 text-sm">
         {v.items.map((x) => (

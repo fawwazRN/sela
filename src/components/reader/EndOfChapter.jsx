@@ -10,13 +10,13 @@ export default function EndOfChapter({ book, chap, done, onNext, onFinish }) {
     <div className="mx-auto my-16 max-w-[68ch] fadein">
       <div className="bg-line mb-10 h-px" />
       {c.ringkasan && (
-        <div className="mb-6 p-5 card">
+        <div className="bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] mb-6 p-5 border border-line rounded-2xl">
           <p className="mb-2 lbl">Ringkasan bab</p>
           <p className="text-[15px] leading-relaxed">{c.ringkasan}</p>
         </div>
       )}
       {kuis && (
-        <div className="mb-6 p-5 card">
+        <div className="bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] mb-6 p-5 border border-line rounded-2xl">
           <p className="mb-2 lbl">Kuis cepat</p>
           <p className="mb-4 font-display font-semibold text-lg">{kuis.q}</p>
           <div className="gap-2 grid">
@@ -69,7 +69,7 @@ export default function EndOfChapter({ book, chap, done, onNext, onFinish }) {
         </span>
       </div>
       {last && done && (
-        <div className="mt-8 p-6 text-center card">
+        <div className="bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] mt-8 p-6 border border-line rounded-2xl text-center">
           <p className="font-display font-bold text-3xl">Selesai. 🎉</p>
           <p className="mt-2 text-ink2 text-sm">
             “{book.judul}” masuk rak selesai baca. Kartu bacaanmu siap di

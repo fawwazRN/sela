@@ -18,7 +18,7 @@ export default function PopoverKata({ data, onClose, onHighlight }) {
   return (
     <div
       ref={ref}
-      className="z-50 fixed shadow-2xl p-4 w-72 card fadein"
+      className="z-50 fixed bg-paper shadow-[0_12px_32px_rgba(26,24,21,0.16)] p-4 border border-line rounded-2xl w-72 fadein"
       style={{ top, left }}>
       <p className="font-display font-semibold text-lg">{data.word}</p>
       {data.name ? (

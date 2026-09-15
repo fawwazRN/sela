@@ -83,7 +83,7 @@ export default function Rak() {
       {last && (
         <Link
           to={`/baca/${last.slug}`}
-          className="flex items-center gap-4 mt-6 p-4 hover:border-ink transition-colors card">
+          className="flex items-center gap-4 bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] mt-6 p-4 border border-line hover:border-ink rounded-2xl transition-colors">
           <Cover book={last} className="w-12 aspect-[3/4]" />
           <div className="flex-1 min-w-0">
             <p className="font-medium text-sm truncate">
@@ -131,7 +131,7 @@ export default function Rak() {
               <div key={b.id} className="group relative pb-5">
                 <Link
                   to={`/buku/${b.slug}`}
-                  className="block relative p-3 hover:border-ink transition-colors card">
+                  className="block relative bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] p-3 border border-line hover:border-ink rounded-2xl transition-colors">
                   <div className="relative">
                     <Cover book={b} className="w-full aspect-[3/4]" />
                     {/* cincin progres untuk yang sedang dibaca */}
@@ -174,7 +174,7 @@ export default function Rak() {
             );
           })}
           {arr.length === 0 && (
-            <p className="col-span-full py-14 text-ink2 text-center card">
+            <p className="col-span-full bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] py-14 border border-line rounded-2xl text-ink2 text-center">
               Rak ini masih kosong.{" "}
               <Link className="text-accent underline" to="/jelajah">
                 Cari buku →

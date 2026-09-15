@@ -879,7 +879,7 @@ export default function Catatan() {
             {(notes || []).map((n) => (
               <div
                 key={n.id}
-                className={`card px-3 py-2.5 flex items-center gap-2 cursor-pointer min-w-40 shrink-0 ${n.id === aktifId ? "border-ink" : "hover:border-ink"}`}
+                className={`bg-paper border rounded-2xl shadow-[0_2px_10px_rgba(26,24,21,0.05)] px-3 py-2.5 flex items-center gap-2 cursor-pointer min-w-40 shrink-0 ${n.id === aktifId ? "border-ink" : "border-line hover:border-ink"}`}
                 onClick={() => {
                   setAktifId(n.id);
                   setSelIds([]);
@@ -918,7 +918,7 @@ export default function Catatan() {
 
         {aktif ? (
           <div className="flex-1 min-w-0">
-            <div className="flex flex-wrap items-center gap-2 p-2.5 card">
+            <div className="flex flex-wrap items-center gap-2 bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] p-2.5 border border-line rounded-2xl">
               <input
                 value={aktif.judul}
                 onChange={(e) => upd({ judul: e.target.value })}
@@ -1002,7 +1002,7 @@ export default function Catatan() {
               onPointerDown={() => {
                 if (teksEd) simpanTeks();
               }}
-              className="relative mt-2 !rounded-xl overflow-hidden touch-none card"
+              className="relative bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] mt-2 border border-line rounded-xl overflow-hidden touch-none"
               style={{
                 height: "68vh",
                 background:
@@ -1297,7 +1297,7 @@ export default function Catatan() {
                         simpanTeks();
                       }
                     }}
-                    className="block bg-card/95 shadow-xl p-2 border-2 border-accent rounded-lg outline-none w-60 h-20 text-sm resize-none"
+                    className="block bg-paper/95 shadow-xl p-2 border-2 border-accent rounded-lg outline-none w-60 h-20 text-sm resize-none"
                     placeholder="Tulis teks… (Enter = simpan)"
                   />
                   <div className="flex gap-1.5 mt-1">
@@ -1315,7 +1315,7 @@ export default function Catatan() {
                 </div>
               )}
 
-              <div className="right-3 bottom-3 absolute flex items-center gap-1 px-2 py-1 !rounded-full text-xs card">
+              <div className="right-3 bottom-3 absolute flex items-center gap-1 bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] px-2 py-1 border border-line rounded-full text-xs">
                 <button
                   onClick={() =>
                     setView((v) => ({ ...v, z: Math.max(0.15, v.z * 0.85) }))
@@ -1339,7 +1339,7 @@ export default function Catatan() {
             </div>
           </div>
         ) : (
-          <div className="flex-1 place-items-center grid py-20 text-ink2 text-sm card">
+          <div className="flex-1 place-items-center grid bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] py-20 border border-line rounded-2xl text-ink2 text-sm">
             Pilih atau buat catatan untuk mulai.
           </div>
         )}

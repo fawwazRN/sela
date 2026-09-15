@@ -2,6 +2,53 @@ import { useNavigate, Link } from "react-router";
 import { useApp } from "../context/AppContext";
 import { fmtDate } from "../lib/utils";
 
+/* ===== bangun ulang markdown satu bab dari buku ter-publish ===== */
+const babKeMd = (c) => {
+  /* 1) raw tersimpan (publish versi baru) → 100% akurat */
+  if (c.raw) return `# ${c.judul}\n\n${c.raw}`;
+
+  /* 2) rekonstruksi dari blok (publish versi lama) */
+  let s = "";
+  (c.isi || []).forEach((bl) => {
+    if (bl.t === "p") s += bl.v + "\n\n";
+    else if (bl.t === "h") s += "#".repeat(bl.lvl || 2) + " " + bl.v + "\n\n";
+    else if (bl.t === "ul")
+      s += bl.v.map((li) => "- " + li).join("\n") + "\n\n";
+    else if (bl.t === "pre") s += "```\n" + bl.v + "\n```\n\n";
+    else if (bl.t === "tl") s += `@tl ${bl.y || ""} | ${bl.v}\n`;
+    else if (bl.t === "verse") s += bl.v.join("\n") + "\n\n";
+    else if (bl.t === "quote") {
+      const arr = Array.isArray(bl.v) ? bl.v : [];
+      s +=
+        arr
+          .map((q) =>
+            typeof q === "string"
+              ? "> " + q
+              : q.li
+                ? "> * " + q.text
+                : "> " + q.text,
+          )
+          .join("\n") + "\n\n";
+    } else if (bl.t === "table") {
+      const rows = bl.v || [];
+      if (rows.length) {
+        s += "| " + rows[0].join(" | ") + " |\n";
+        s += "| " + rows[0].map(() => "---").join(" | ") + " |\n";
+        rows.slice(1).forEach((r) => (s += "| " + r.join(" | ") + " |\n"));
+        s += "\n";
+      }
+    }
+    /* diagram tidak punya bentuk markdown — dilewati */
+  });
+  if (c.ringkasan) s += `%% ${c.ringkasan}\n\n`;
+  if (c.kuis)
+    s +=
+      `@?? ${c.kuis.q} | ` +
+      c.kuis.o.map((o, i) => o + (i === c.kuis.a ? "*" : "")).join(" | ") +
+      "\n\n";
+  return `# ${c.judul}\n\n` + s;
+};
+
 export default function StudioList() {
   const {
     user,
@@ -48,6 +95,30 @@ export default function StudioList() {
   const published = books.filter(
     (b) => b.custom && (isAdmin || b.owner === user.email),
   );
+
+  /* ===== EDIT CERDAS: pakai draft kalau ada, rekonstruksi kalau hilang ===== */
+  const editBook = (b) => {
+    const draftId = b.slug.startsWith("studio-") ? b.slug.slice(7) : null;
+
+    /* draft ada di perangkat ini → langsung buka */
+    if (draftId && drafts.some((d) => d.id === draftId)) {
+      nav(`/studio/${draftId}`);
+      return;
+    }
+
+    /* draft hilang (dibuat di perangkat lain / belum tersinkron)
+       → bangun ulang dari buku ter-publish, dengan ID yang SAMA
+         supaya publish ulang menimpa buku yang sama, bukan dobel */
+    const md = b.bab.map(babKeMd).join("\n\n");
+    const id = saveDraft({
+      ...(draftId ? { id: draftId } : {}),
+      judul: b.judul,
+      genre: b.genre,
+      md,
+    });
+    nav(`/studio/${id}`);
+  };
+
   const baru = () => {
     const id = saveDraft({
       judul: "Tanpa Judul",
@@ -105,7 +176,7 @@ export default function StudioList() {
         {drafts.map((d) => (
           <div
             key={d.id}
-            className="flex items-center gap-3 p-4 hover:border-ink transition-colors card">
+            className="flex items-center gap-3 bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] p-4 border border-line hover:border-ink rounded-2xl transition-colors">
             <span className="place-items-center grid bg-line/60 rounded-lg w-9 h-9 font-display font-bold text-sm shrink-0">
               {d.judul[0].toUpperCase()}
             </span>
@@ -130,7 +201,7 @@ export default function StudioList() {
           </div>
         ))}
         {drafts.length === 0 && (
-          <p className="py-10 text-ink2 text-sm text-center card">
+          <p className="bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] py-10 border border-line rounded-2xl text-ink2 text-sm text-center">
             Belum ada draft. Klik <b>+ Tulis baru</b> — template contoh sudah
             terisi otomatis.
           </p>
@@ -144,7 +215,9 @@ export default function StudioList() {
           </p>
           <div className="space-y-2">
             {published.map((b) => (
-              <div key={b.id} className="flex items-center gap-3 p-4 card">
+              <div
+                key={b.id}
+                className="flex items-center gap-3 bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] p-4 border border-line rounded-2xl">
                 <Link
                   to={`/buku/${b.slug}`}
                   className="flex-1 min-w-0 hover:underline underline-offset-4">
@@ -154,11 +227,11 @@ export default function StudioList() {
                   </p>
                 </Link>
                 {b.slug.startsWith("studio-") && (
-                  <Link
-                    to={`/studio/${b.slug.slice(7)}`}
+                  <button
+                    onClick={() => editBook(b)}
                     className="text-xs hover:underline shrink-0">
                     Edit
-                  </Link>
+                  </button>
                 )}
                 <button
                   onClick={() => {
@@ -172,8 +245,8 @@ export default function StudioList() {
             ))}
           </div>
           <p className="mt-2 text-[11px] text-ink2">
-            "Edit" membuka draft dari buku ter-publish — ubah, lalu publish
-            ulang.
+            "Edit" membuka draft dari buku ter-publish — kalau draftnya tidak
+            ada di perangkat ini, draft dibangun ulang otomatis dari bukunya.
           </p>
         </>
       )}

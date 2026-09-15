@@ -67,7 +67,7 @@ export default function Search() {
             <Link
               key={i}
               to={`/baca/${r.book.slug}?bab=${r.ci}`}
-              className="block p-4 hover:border-ink transition-colors card">
+              className="block bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] p-4 border border-line hover:border-ink rounded-2xl transition-colors">
               <p className="text-ink2 text-xs">
                 {r.book.judul} · Bab {r.ci + 1} — {r.judul}
               </p>

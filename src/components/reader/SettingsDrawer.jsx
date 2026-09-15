@@ -26,7 +26,7 @@ export default function SettingsDrawer({
   return (
     <>
       <div className="z-40 fixed inset-0 bg-black/30" onClick={onClose} />
-      <aside className="top-0 right-0 bottom-0 z-50 fixed bg-card p-6 border-line border-l w-80 max-w-full overflow-y-auto fadein">
+      <aside className="top-0 right-0 bottom-0 z-50 fixed bg-paper p-6 border-line border-l w-80 max-w-full overflow-y-auto fadein">
         <div className="flex justify-between items-center mb-6">
           <p className="font-display font-bold text-lg">Pengaturan baca</p>
           <button onClick={onClose} className="px-2 text-2xl leading-none">

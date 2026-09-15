@@ -161,7 +161,7 @@ export default function Navbar({ onSearch }) {
                 )}
               </button>
               {menu && (
-                <div className="right-0 absolute shadow-2xl mt-3 p-1.5 w-56 overflow-hidden card fadein">
+                <div className="right-0 absolute bg-paper shadow-[0_12px_32px_rgba(26,24,21,0.16)] mt-3 p-1.5 border border-line rounded-2xl w-56 overflow-hidden fadein">
                   <div className="flex items-center gap-3 px-3 pt-2.5 pb-3">
                     <span className="place-items-center grid bg-accent rounded-full w-10 h-10 font-display font-bold text-white shrink-0">
                       {user.name[0].toUpperCase()}

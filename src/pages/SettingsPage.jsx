@@ -96,7 +96,7 @@ export default function SettingsPage() {
       {tersimpan && <p className="mt-2 text-green-600 text-xs">{tersimpan}</p>}
 
       {/* ===== PROFIL ===== */}
-      <section className="mt-6 p-5 card">
+      <section className="bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] mt-6 p-5 border border-line rounded-2xl">
         <div className="flex items-center gap-4">
           <span className="relative place-items-center grid bg-accent rounded-full w-14 h-14 font-display font-bold text-white text-xl">
             {(user?.name || "?")[0].toUpperCase()}
@@ -178,7 +178,7 @@ export default function SettingsPage() {
       </div>
 
       <p className="mt-8 mb-3 lbl">Tipografi baca</p>
-      <div className="gap-4 grid p-5 card">
+      <div className="gap-4 grid bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] p-5 border border-line rounded-2xl">
         <div>
           <div className="flex justify-between mb-1 text-sm">
             <span className="text-ink2">Ukuran huruf</span>
@@ -228,7 +228,7 @@ export default function SettingsPage() {
 
       {/* ===== TARGET ===== */}
       <p className="mt-8 mb-3 lbl">Target membaca harian</p>
-      <div className="p-5 card">
+      <div className="bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] p-5 border border-line rounded-2xl">
         <div className="flex flex-wrap gap-2">
           {[10, 15, 20, 30, 45, 60].map((m) => (
             <button
@@ -248,7 +248,7 @@ export default function SettingsPage() {
       {isAdmin && (
         <>
           <p className="mt-8 mb-3 lbl">Kelola katalog</p>
-          <div className="gap-3 grid p-5 card">
+          <div className="gap-3 grid bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] p-5 border border-line rounded-2xl">
             <div className="flex justify-between items-center gap-3">
               <div>
                 <p className="font-medium text-sm">Buku bawaan disembunyikan</p>
@@ -281,7 +281,7 @@ export default function SettingsPage() {
 
       {/* ===== GENRE FAVORIT (info) ===== */}
       <p className="mt-8 mb-3 lbl">Genre yang tersedia</p>
-      <div className="flex flex-wrap gap-2 p-4 card">
+      <div className="flex flex-wrap gap-2 bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] p-4 border border-line rounded-2xl">
         {GENRES_LIST.map((g) => (
           <span key={g} className="!text-[11px] !cursor-default chip">
             {g}
@@ -291,7 +291,7 @@ export default function SettingsPage() {
 
       {/* ===== DATA ===== */}
       <p className="mt-8 mb-3 lbl">Data & privasi</p>
-      <div className="gap-3 grid p-5 card">
+      <div className="gap-3 grid bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] p-5 border border-line rounded-2xl">
         <p className="text-ink2 text-xs">
           {jmlNotes > 0 && (
             <>Ada {jmlNotes} catatan tersimpan di perangkat ini. </>

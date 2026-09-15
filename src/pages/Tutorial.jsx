@@ -53,7 +53,7 @@ function Kode({ children, salin = true }) {
   const [ok, setOk] = useState(false);
   return (
     <div className="group relative">
-      <pre className="bg-card p-3 pr-14 border border-line rounded-lg overflow-x-auto font-mono text-[13px] whitespace-pre">
+      <pre className="bg-paper p-3 pr-14 border border-line rounded-lg overflow-x-auto font-mono text-[13px] whitespace-pre">
         {children}
       </pre>
       {salin && (
@@ -222,7 +222,7 @@ export default function Tutorial() {
                 </a>
               ))}
             </div>
-            <div className="mt-6 p-3.5 card">
+            <div className="bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] mt-6 p-3.5 border border-line rounded-2xl">
               <p className="mb-1 font-medium text-xs">Mau langsung?</p>
               <p className="text-[11px] text-ink2 leading-relaxed">
                 Salin template di bagian 9, tempel di Studio, publish. Selesai.
@@ -242,7 +242,7 @@ export default function Tutorial() {
             <div className="gap-4 grid md:grid-cols-2">
               <Link
                 to="/studio"
-                className="relative p-5 hover:border-ink overflow-hidden transition-colors card">
+                className="relative bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] p-5 border border-line hover:border-ink rounded-2xl overflow-hidden transition-colors">
                 <span className="top-0 right-0 left-0 absolute bg-accent h-0.5" />
                 <p className="font-display font-semibold text-lg">
                   Studio — tulis di web
@@ -258,7 +258,7 @@ export default function Tutorial() {
               </Link>
               <Link
                 to="/impor"
-                className="relative p-5 hover:border-ink overflow-hidden transition-colors card">
+                className="relative bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] p-5 border border-line hover:border-ink rounded-2xl overflow-hidden transition-colors">
                 <span className="top-0 right-0 left-0 absolute bg-line h-0.5" />
                 <p className="font-display font-semibold text-lg">
                   Impor — file .md jadi
@@ -434,7 +434,7 @@ export default function Tutorial() {
               ]}
             />
             <div className="gap-4 grid sm:grid-cols-2 mt-4">
-              <div className="p-4 card">
+              <div className="bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] p-4 border border-line rounded-2xl">
                 <p className="mb-2 font-medium text-xs">Kamu tulis</p>
                 <Kode>{"Di hutan, hiduplah {Kancil} yang cerdik."}</Kode>
               </div>
@@ -454,7 +454,7 @@ export default function Tutorial() {
                 </div>
               </div>
             </div>
-            <div className="mt-4 p-4 text-sm card">
+            <div className="bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] mt-4 p-4 border border-line rounded-2xl text-sm">
               <p className="mb-1 font-display font-semibold">
                 Kata glosarium — tanpa markap!
               </p>
@@ -514,7 +514,7 @@ export default function Tutorial() {
               tayang.
             </p>
             <div className="relative">
-              <pre className="bg-card p-5 border border-line rounded-xl overflow-x-auto font-mono text-[13px] leading-relaxed whitespace-pre-wrap">
+              <pre className="bg-paper p-5 border border-line rounded-xl overflow-x-auto font-mono text-[13px] leading-relaxed whitespace-pre-wrap">
                 {TEMPLATE}
               </pre>
             </div>
@@ -529,7 +529,7 @@ export default function Tutorial() {
           </Bagian>
 
           {/* RINGKASAN */}
-          <section className="relative mt-16 p-6 md:p-8 overflow-hidden card">
+          <section className="relative bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] mt-16 p-6 md:p-8 border border-line rounded-2xl overflow-hidden">
             <span className="top-0 right-0 left-0 absolute bg-accent h-0.5" />
             <p className="mb-5 lbl">Ringkasan 4 langkah</p>
             <div className="gap-5 grid sm:grid-cols-4 text-sm text-center">
