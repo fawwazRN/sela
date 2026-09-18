@@ -3,7 +3,6 @@ import { Outlet } from "react-router";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import CommandPalette from "../components/CommandPalette";
-import IntroAward from "../components/IntroAward";
 
 export default function MainLayout() {
   const [pal, setPal] = useState(false);
@@ -19,7 +18,6 @@ export default function MainLayout() {
   }, []);
   return (
     <div className="flex flex-col min-h-screen">
-      <IntroAward />
       <Navbar onSearch={() => setPal(true)} />
       <main className="flex-1">
         <Outlet />
