@@ -7,25 +7,6 @@ import { KURASI, G2M, MODE, ACC } from "../data/books";
 import { today } from "../lib/storage";
 import { fmtMin, fmtDate } from "../lib/utils";
 
-function MiniBintang({ isi, ukuran = 12 }) {
-  const p =
-    "M12 2l2.9 6.26 6.6.57-5 4.36 1.5 6.45L12 16.9 5.99 19.64l1.5-6.45-5-4.36 6.6-.57L12 2z";
-  return (
-    <span className="inline-flex gap-0.5">
-      {[1, 2, 3, 4, 5].map((i) => (
-        <svg key={i} width={ukuran} height={ukuran} viewBox="0 0 24 24">
-          <path
-            d={p}
-            fill={i <= isi ? "#B3402A" : "none"}
-            stroke="#B3402A"
-            strokeWidth="1.6"
-          />
-        </svg>
-      ))}
-    </span>
-  );
-}
-
 function Ring({ p, size = 84 }) {
   const r = (size - 10) / 2,
     c = 2 * Math.PI * r;
@@ -80,14 +61,12 @@ export default function Home() {
     user,
   } = useApp();
 
-  /* ===== jaring aman angka ===== */
   const targetAman = Number(goal) > 0 ? Number(goal) : 20;
   const mntHariIni = Math.round((readlog[today()] || 0) / 60);
   const pTarget = Number.isFinite(mntHariIni / targetAman)
     ? Math.min(1, mntHariIni / targetAman)
     : 0;
 
-  /* ---- lanjutkan membaca ---- */
   const entries = Object.entries(progress).sort(
     (a, b) => (b[1].at || 0) - (a[1].at || 0),
   );
@@ -100,7 +79,6 @@ export default function Home() {
       ? Math.max(1, Math.round((last.durasi * (100 - (lastP?.pct ?? 0))) / 100))
       : 0;
 
-  /* ---- statistik ---- */
   const totalMnt = Object.values(readlog).reduce((a, b) => a + b, 0) / 60;
   const streak = (() => {
     let s = 0;
@@ -147,7 +125,7 @@ export default function Home() {
           <p className="mb-4 lbl">Lanjutkan membaca</p>
           <Link
             to={`/baca/${last.slug}`}
-            className="flex items-center gap-5 p-5 hover:border-ink transition-colors card">
+            className="flex items-center gap-5 bg-paper p-5 border border-line hover:border-ink rounded-2xl transition-colors">
             <Cover book={last} className="w-16 aspect-[3/4]" />
             <div className="flex-1 min-w-0">
               <p className="font-display font-semibold text-lg truncate">
@@ -192,7 +170,7 @@ export default function Home() {
 
       {/* ===== PANEL PRIBADI ===== */}
       <section className="gap-4 grid sm:grid-cols-2 pt-8 fadein">
-        <div className="flex items-center gap-5 p-5 card">
+        <div className="flex items-center gap-5 bg-paper p-5 border border-line rounded-2xl">
           <Ring p={pTarget} />
           <div className="min-w-0">
             <p className="font-display font-semibold">Target hari ini</p>
@@ -207,7 +185,7 @@ export default function Home() {
             </Link>
           </div>
         </div>
-        <div className="gap-2 grid grid-cols-3 p-5 text-center card">
+        <div className="gap-2 grid grid-cols-3 bg-paper p-5 border border-line rounded-2xl text-center">
           {[
             ["Total baca", fmtMin(totalMnt)],
             ["Buku selesai", jmlSelesai + ""],
@@ -234,7 +212,7 @@ export default function Home() {
             <Link
               key={b.id}
               to={`/buku/${b.slug}`}
-              className="flex items-center gap-4 p-3 hover:border-ink transition-colors card">
+              className="flex items-center gap-4 bg-paper p-3 border border-line hover:border-ink rounded-2xl transition-colors">
               <span className="w-8 font-display font-bold text-ink2/50 text-2xl text-center shrink-0">
                 {i + 1}
               </span>
@@ -302,7 +280,7 @@ export default function Home() {
       {(selesaiBaru.length > 0 || rakSimpan.length > 0) && (
         <section className="gap-4 grid md:grid-cols-2 pt-12">
           {selesaiBaru.length > 0 && (
-            <div className="p-5 card">
+            <div className="bg-paper p-5 border border-line rounded-2xl">
               <p className="mb-3 lbl">Baru selesai dibaca</p>
               <div className="space-y-2">
                 {selesaiBaru.map((b) => (
@@ -328,7 +306,7 @@ export default function Home() {
             </div>
           )}
           {rakSimpan.length > 0 && (
-            <div className="p-5 card">
+            <div className="bg-paper p-5 border border-line rounded-2xl">
               <p className="mb-3 lbl">Disimpan untuk nanti</p>
               <div className="flex flex-wrap gap-2">
                 {rakSimpan.map((b) => (
@@ -363,7 +341,7 @@ export default function Home() {
               <Link
                 key={k.slug}
                 to={`/kurasi/${k.slug}`}
-                className="p-5 hover:border-ink transition-colors card">
+                className="bg-paper p-5 border border-line hover:border-ink rounded-2xl transition-colors">
                 <p className="font-display font-semibold text-lg">{k.judul}</p>
                 <p className="mt-1 text-ink2 text-sm">{k.desc}</p>
                 <div className="flex -space-x-3 mt-4">
@@ -391,7 +369,9 @@ export default function Home() {
         </div>
         <div className="gap-3 grid sm:grid-cols-2">
           {glosTerbaru.map(([k, v]) => (
-            <div key={k} className="p-4 card">
+            <div
+              key={k}
+              className="bg-paper p-4 border border-line rounded-2xl">
               <p className="font-display font-semibold text-sm">{k}</p>
               <p className="mt-0.5 text-[13px] text-ink2">{v}</p>
             </div>
@@ -417,7 +397,9 @@ export default function Home() {
               "Tanpa musik, tanpa iklan, tanpa notifikasi. Antarmuka menghilang saat kamu membaca.",
             ],
           ].map(([t, d]) => (
-            <div key={t} className="p-5 card">
+            <div
+              key={t}
+              className="bg-paper p-5 border border-line rounded-2xl">
               <p className="font-display font-semibold">{t}</p>
               <p className="mt-1.5 text-ink2 text-sm leading-relaxed">{d}</p>
             </div>
@@ -428,7 +410,7 @@ export default function Home() {
       {/* ===== CTA PENULIS ===== */}
       {!user && (
         <section className="pt-14 pb-10">
-          <div className="p-8 text-center card">
+          <div className="bg-paper p-8 border border-line rounded-2xl text-center">
             <p className="font-display font-bold text-2xl">
               Punya naskah sendiri?
             </p>

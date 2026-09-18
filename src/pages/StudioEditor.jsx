@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { Navigate, useParams, Link } from "react-router";
 import { useApp, PENERBIT_RESMI } from "../context/AppContext";
-import { G2M2, MODE, GENRES_LIST } from "../data/books";
+import { G2M2, MODE } from "../data/books";
 import ContentRenderer from "../components/reader/ContentRenderer";
 import { mdToBlocks } from "../lib/markdown";
 import { uid } from "../lib/storage";
@@ -17,7 +17,7 @@ function parseMd(md) {
         bab.push(cur);
       }
       const rawBab = buf.join("\n").trim();
-      if (!cur.raw) cur.raw = rawBab; // markdown asli per bab — edit ulang lintas perangkat
+      if (!cur.raw) cur.raw = rawBab;
       cur.isi.push(...mdToBlocks(rawBab));
     }
     buf = [];
@@ -30,7 +30,7 @@ function parseMd(md) {
         judul: t.replace(/^#\s+/, "").replace(/\*\*/g, "").replace(/\\/g, ""),
         isi: [],
         ringkasan: null,
-        kuis: [], // ARRAY: semua @?? terkumpul
+        kuis: [],
       };
       bab.push(cur);
     } else if (/^%%\s?/.test(t)) {
@@ -54,7 +54,7 @@ function parseMd(md) {
           0,
           opts.findIndex((s) => s.endsWith("*")),
         );
-        cur.kuis.push({ q: q.replace(/\\/g, ""), o, a }); // PUSH, bukan timpa
+        cur.kuis.push({ q: q.replace(/\\/g, ""), o, a });
       }
     } else if (t === "") flush();
     else buf.push(l);
@@ -78,7 +78,8 @@ const SISIP = [
 
 export default function StudioEditor() {
   const { id } = useParams();
-  const { user, drafts, saveDraft, addCustomBook, isAdmin, subs } = useApp();
+  const { user, drafts, saveDraft, addCustomBook, isAdmin, subs, genres } =
+    useApp();
   const draft = drafts.find((d) => d.id === id);
   const [pub, setPub] = useState(false);
   const [pane, setPane] = useState("both");
@@ -151,8 +152,7 @@ export default function StudioEditor() {
   };
 
   /* publish memakai targetId/targetSlug kalau ada —
-     edit buku yang sudah tayang MENIMPA buku yang sama
-     (slug & id tetap → progres pembaca tidak putus) */
+     edit buku yang sudah tayang MENIMPA buku yang sama */
   const publish = () => {
     const penerbit = isAdmin ? penulis.trim() || PENERBIT_RESMI : user.name;
     addCustomBook({
@@ -197,7 +197,7 @@ export default function StudioEditor() {
           value={draft.genre}
           onChange={(e) => upd({ genre: e.target.value })}
           className="!py-2 !w-auto text-xs inp">
-          {GENRES_LIST.map((g) => (
+          {genres.map((g) => (
             <option key={g} value={g}>
               {g}
             </option>
@@ -229,7 +229,6 @@ export default function StudioEditor() {
           </label>
         )}
         <div className="flex-1" />
-        {/* penanda mode kolaborasi */}
         {!draft.mine && (
           <span className="bg-accent/15 px-2 py-0.5 rounded text-[10px] text-accent uppercase tracking-wider">
             Mengedit draft {draft.ownerEmail || "penulis lain"}
@@ -297,7 +296,7 @@ export default function StudioEditor() {
           placeholder={"# Bab Satu\n\nTulis di sini…"}
         />
 
-        {/* PRATINJAU — live terjamin via versi */}
+        {/* PRATINJAU */}
         <div
           className={`${pane === "tulis" ? "hidden md:block" : ""} h-full flex flex-col min-h-0 bg-paper`}>
           <div className="flex items-center gap-2 bg-paper/50 px-5 py-2 border-line border-b">

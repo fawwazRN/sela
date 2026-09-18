@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate, Link } from "react-router";
 import { useApp, PENERBIT_RESMI } from "../context/AppContext";
 import { uid } from "../lib/storage";
-import { GENRES_LIST, G2M2, MODE } from "../data/books";
+import { G2M2, MODE } from "../data/books";
 import { mdToBlocks, splitChapters } from "../lib/markdown";
 
 const SPLITTERS = [
@@ -33,8 +33,15 @@ Isi bab dua di sini.
 `;
 
 export default function ImportPage() {
-  const { addCustomBook, books, removeCustomBook, saveDraft, isAdmin, user } =
-    useApp();
+  const {
+    addCustomBook,
+    books,
+    removeCustomBook,
+    saveDraft,
+    isAdmin,
+    user,
+    genres,
+  } = useApp();
   const nav = useNavigate();
 
   /* ===== GERBANG LOGIN ===== */
@@ -280,13 +287,13 @@ export default function ImportPage() {
       </p>
 
       {st === "error" && (
-        <p className="mt-4 p-3 !border-accent/40 text-accent text-sm card">
+        <p className="bg-paper mt-4 p-3 border !border-accent/40 border-line rounded-2xl text-accent text-sm">
           {msg}
         </p>
       )}
 
       {st === "done" && parsed && (
-        <div className="mt-4 p-5 card fadein">
+        <div className="bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] mt-4 p-5 border border-line rounded-2xl fadein">
           <div className="flex justify-between items-center mb-2">
             <p className="lbl">Pratinjau — {parsed.chapters.length} bab</p>
             <span className="text-[11px] text-ink2">
@@ -332,7 +339,7 @@ export default function ImportPage() {
 
           <p className="mb-2 lbl">Genre — menentukan mode baca</p>
           <div className="flex flex-wrap gap-2 mb-2">
-            {GENRES_LIST.map((g) => (
+            {genres.map((g) => (
               <button
                 key={g}
                 onClick={() => setGenre(g)}
@@ -371,7 +378,9 @@ export default function ImportPage() {
           <p className="mt-10 mb-3 lbl">Imporan sebelumnya</p>
           <div className="space-y-2">
             {imports.map((b) => (
-              <div key={b.id} className="flex items-center gap-3 p-4 card">
+              <div
+                key={b.id}
+                className="flex items-center gap-3 bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] p-4 border border-line rounded-2xl">
                 <Link
                   to={`/buku/${b.slug}`}
                   className="flex-1 min-w-0 hover:underline underline-offset-4">

@@ -84,6 +84,7 @@ export default function BookDetail() {
     submitReview,
     deleteReview,
     subs,
+    warnaGenre,
   } = useApp();
   const book = getBook(slug);
   const nav = useNavigate();
@@ -110,7 +111,7 @@ export default function BookDetail() {
 
   if (!book) return <NotFound />;
   const p = progress[book.id];
-  const c = ACC[book.genre] || ACC.Umum;
+  const c = warnaGenre(book.genre);
   const m = MODE[G2M2[book.genre] || "imersi"];
   const saved = shelf.simpan.includes(book.id);
   const bolehHapus = isAdmin || (user && book.owner === user.email);

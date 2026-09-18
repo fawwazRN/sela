@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router";
 import { useApp } from "../context/AppContext";
 import BookCard from "../components/BookCard";
 import Cover from "../components/Cover";
-import { GENRES_LIST, G2M2, MODE, ACC } from "../data/books";
+import { G2M2, MODE, ACC } from "../data/books";
 import { fmtMin } from "../lib/utils";
 
 const URUT = [
@@ -34,7 +34,15 @@ function Bars({ isi, ukuran = 12 }) {
 }
 
 export default function Jelajah() {
-  const { books, views, progress, fetchReviews, priorSlugs } = useApp();
+  const {
+    books,
+    views,
+    progress,
+    fetchReviews,
+    priorSlugs,
+    genres,
+    warnaGenre,
+  } = useApp();
   const [sp, setSp] = useSearchParams();
   const genre = sp.get("genre") || "Semua";
   const mode = sp.get("mode") || "Semua";
@@ -102,6 +110,12 @@ export default function Jelajah() {
 
   const fmtViews = (n) =>
     n >= 1000 ? (n / 1000).toFixed(1).replace(".0", "") + " rb" : n;
+
+  /* genre dari DB + genre yang benar-benar dipakai buku */
+  const daftarGenre = useMemo(
+    () => [...new Set([...genres, ...books.map((b) => b.genre)])],
+    [genres, books],
+  );
 
   return (
     <div className="mx-auto px-5 pt-12 max-w-6xl fadein">
@@ -203,9 +217,9 @@ export default function Jelajah() {
         </div>
       </div>
 
-      {/* chip genre */}
+      {/* chip genre — dari DB + genre yang dipakai buku */}
       <div className="flex flex-wrap gap-2 mt-3">
-        {["Semua", ...GENRES_LIST].map((g, i) => (
+        {["Semua", ...daftarGenre].map((g, i) => (
           <button
             key={g}
             onClick={() => setParam("genre", g, "Semua")}
@@ -258,12 +272,12 @@ export default function Jelajah() {
           {list.map((b) => {
             const r = ratings[b.slug];
             const p = progress[b.id];
-            const c = ACC[b.genre] || ACC.Umum;
+            const c = warnaGenre(b.genre);
             return (
               <Link
                 key={b.id}
                 to={`/buku/${b.slug}`}
-                className="relative flex items-center gap-4 bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] p-3 border border-line hover:border-ink rounded-2xl overflow-hidden transition-colors">
+                className="relative flex items-center gap-4 bg-paper p-3 border border-line hover:border-ink rounded-2xl overflow-hidden transition-colors">
                 <span
                   className="top-0 bottom-0 left-0 absolute w-1"
                   style={{ background: c }}

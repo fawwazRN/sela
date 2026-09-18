@@ -14,6 +14,9 @@ export default function AdminPanel() {
     matikanSubs,
     addGenre,
     removeGenre,
+    editGenre,
+    restoreGenre,
+    warnaGenre,
     customGenres,
   } = useApp();
   const [emails, setEmails] = useState(null);
@@ -21,7 +24,10 @@ export default function AdminPanel() {
   const [msg, setMsg] = useState("");
   const [subsList, setSubsList] = useState([]);
   const [fSub, setFSub] = useState({ email: "", paket: "plus", bulan: 1 });
-  const [fG, setFG] = useState({ nama: "", mode: "imersi" });
+  const [fG, setFG] = useState({ nama: "", mode: "imersi", warna: "#5B4B8A" });
+  const [editNama, setEditNama] = useState(null);
+  const [editMode, setEditMode] = useState("imersi");
+  const [editWarna, setEditWarna] = useState("#5B4B8A");
 
   const muat = () =>
     listAdmin()
@@ -78,6 +84,7 @@ export default function AdminPanel() {
         Kelola admin, langganan, dan genre katalog.
       </p>
 
+      {/* ===== TAMBAH ADMIN ===== */}
       <form
         onSubmit={tambah}
         className="gap-3 grid bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] mt-6 p-5 border border-line rounded-2xl">
@@ -96,6 +103,7 @@ export default function AdminPanel() {
         {msg && <p className="text-ink2 text-xs">{msg}</p>}
       </form>
 
+      {/* ===== DAFTAR ADMIN ===== */}
       <p className="mt-8 mb-3 lbl">Daftar admin ({emails?.length ?? "…"})</p>
       <div className="space-y-2">
         {(emails || []).map((em) => (
@@ -204,20 +212,20 @@ export default function AdminPanel() {
         </div>
       </form>
 
-      {/* ===== GENRE KUSTOM ===== */}
-      <p className="mt-10 mb-3 lbl">Genre kustom</p>
-      <form
-        onSubmit={async (e) => {
-          e.preventDefault();
-          await addGenre(fG.nama, fG.mode);
-          setFG({ nama: "", mode: "imersi" });
-        }}
-        className="gap-3 grid bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] p-5 border border-line rounded-2xl">
-        <p className="lbl">Tambah genre baru (untuk katalog)</p>
-        <div className="gap-2 grid sm:grid-cols-[1.5fr_auto_auto]">
+      {/* ===== GENRE: KELOLA PENUH + WARNA SAMPUL ===== */}
+      <p className="mt-10 mb-3 lbl">Genre katalog ({customGenres.length})</p>
+      <div className="gap-3 grid bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] p-5 border border-line rounded-2xl">
+        {/* tambah */}
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            await addGenre(fG.nama, fG.mode, fG.warna);
+            setFG({ nama: "", mode: "imersi", warna: "#5B4B8A" });
+          }}
+          className="gap-2 grid sm:grid-cols-[1.5fr_auto_auto_auto]">
           <input
             className="inp"
-            placeholder="Nama genre (mis. Mistery Medis)"
+            placeholder="Nama genre baru"
             value={fG.nama}
             onChange={(e) => setFG({ ...fG, nama: e.target.value })}
           />
@@ -225,49 +233,125 @@ export default function AdminPanel() {
             className="!w-auto inp"
             value={fG.mode}
             onChange={(e) => setFG({ ...fG, mode: e.target.value })}>
-            <option value="fokus">Mode: Fokus</option>
-            <option value="imersi">Mode: Imersi</option>
-            <option value="linimasa">Mode: Linimasa</option>
-            <option value="lambat">Mode: Lambat</option>
-            <option value="ceria">Mode: Ceria</option>
-          </select>
-          <button className="text-xs btn btn-p shrink-0">Tambah</button>
-        </div>
-        {customGenres.length > 0 ? (
-          <div className="space-y-2 mt-2">
-            {customGenres.map((g) => (
-              <div
-                key={g.nama}
-                className="flex items-center gap-3 bg-paper p-3 border border-line rounded-xl text-sm">
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">{g.nama}</p>
-                  <p className="text-ink2 text-xs">
-                    Mode: {g.mode || "imersi"}
-                    {g.oleh ? ` · dibuat oleh ${g.oleh}` : ""}
-                  </p>
-                </div>
-                <button
-                  onClick={() => {
-                    if (
-                      confirm(
-                        `Hapus genre "${g.nama}"?\n\nBuku yang sudah memakai genre ini tidak ikut terhapus — hanya labelnya tetap tercatat.`,
-                      )
-                    )
-                      removeGenre(g.nama);
-                  }}
-                  className="text-accent text-xs hover:underline shrink-0">
-                  hapus
-                </button>
-              </div>
+            {["fokus", "imersi", "linimasa", "lambat", "ceria"].map((m) => (
+              <option key={m} value={m}>
+                Mode: {m}
+              </option>
             ))}
-          </div>
-        ) : (
-          <p className="mt-2 text-ink2 text-xs">
-            Belum ada genre kustom. Genre bawaan (Fiksi, Pelajaran, Sejarah,
-            Puisi, Anak, Umum) melekat pada kode dan tidak dapat dihapus.
+          </select>
+          <input
+            type="color"
+            value={fG.warna}
+            onChange={(e) => setFG({ ...fG, warna: e.target.value })}
+            title="Warna sampul buku genre ini"
+            className="!p-1 !w-12 h-9 cursor-pointer inp"
+          />
+          <button className="text-xs btn btn-p shrink-0">+ Tambah</button>
+        </form>
+
+        {/* daftar */}
+        <div className="space-y-2 mt-2">
+          {customGenres.map((g) => (
+            <div key={g.nama} className="p-3 border border-line rounded-xl">
+              {editNama === g.nama ? (
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    await editGenre(g.nama, editNama, editMode, editWarna);
+                    setEditNama(null);
+                  }}
+                  className="gap-2 grid sm:grid-cols-[1.5fr_auto_auto_auto_auto]">
+                  <input
+                    className="inp"
+                    value={editNama}
+                    onChange={(e) => setEditNama(e.target.value)}
+                  />
+                  <select
+                    className="!w-auto inp"
+                    value={editMode}
+                    onChange={(e) => setEditMode(e.target.value)}>
+                    {["fokus", "imersi", "linimasa", "lambat", "ceria"].map(
+                      (m) => (
+                        <option key={m} value={m}>
+                          {m}
+                        </option>
+                      ),
+                    )}
+                  </select>
+                  <input
+                    type="color"
+                    value={editWarna}
+                    onChange={(e) => setEditWarna(e.target.value)}
+                    className="!p-1 !w-12 h-9 cursor-pointer inp"
+                  />
+                  <button className="text-xs btn btn-p">Simpan</button>
+                  <button
+                    type="button"
+                    onClick={() => setEditNama(null)}
+                    className="text-xs btn btn-o">
+                    Batal
+                  </button>
+                </form>
+              ) : (
+                <div className="flex items-center gap-3">
+                  {/* pratinjau mini sampul dengan warna genre */}
+                  <span
+                    className="border border-black/20 rounded-md w-8 h-10 shrink-0"
+                    style={{
+                      background: `linear-gradient(160deg, ${warnaGenre(g.nama)}, ${warnaGenre(g.nama)}cc 55%, #1A1815)`,
+                    }}
+                    title={warnaGenre(g.nama)}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">{g.nama}</p>
+                    <p className="text-ink2 text-xs">
+                      Mode: {g.mode || "imersi"}
+                      {g.oleh === "bawaan" ? " · bawaan Sela" : ""}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setEditNama(g.nama);
+                      setEditMode(g.mode || "imersi");
+                      setEditWarna(warnaGenre(g.nama));
+                    }}
+                    className="text-xs hover:underline shrink-0">
+                    edit
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (
+                        confirm(
+                          `Hapus genre "${g.nama}"?\n\nBuku yang memakainya tidak ikut terhapus — hanya labelnya tetap.`,
+                        )
+                      )
+                        removeGenre(g.nama);
+                    }}
+                    className="text-accent text-xs hover:underline shrink-0">
+                    hapus
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+          {customGenres.length === 0 && (
+            <p className="py-4 text-ink2 text-xs text-center">
+              Semua genre terhapus. Tambah baru, atau pulihkan bawaan di bawah.
+            </p>
+          )}
+        </div>
+
+        {/* pulihkan */}
+        <div className="flex justify-between items-center gap-3 mt-1 pt-3 border-line border-t">
+          <p className="text-ink2 text-xs">
+            Genre bawaan bisa dipulihkan bila terhapus. Warna sampul tiap genre
+            bisa diubah lewat tombol edit.
           </p>
-        )}
-      </form>
+          <button onClick={restoreGenre} className="text-xs btn btn-o shrink-0">
+            ↺ Pulihkan bawaan
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -7,7 +7,7 @@ import {
   useRef,
 } from "react";
 import { LS, SV, RM, uid, today } from "../lib/storage";
-import { BOOKS, DIK } from "../data/books";
+import { BOOKS, DIK, ACC } from "../data/books";
 import { supabase, HAS_DB } from "../lib/supabase";
 
 const Ctx = createContext(null);
@@ -27,6 +27,25 @@ const KUNCI_PRIBADI = [
 ];
 
 export function AppProvider({ children }) {
+  /* ============================================================
+     ARSITEKTUR:
+     - Server (Supabase) = SUMBER KEBENARAN saat login
+     - localStorage = CACHE (tema, paint instan, konten global)
+     - draft        → tabel `drafts`
+     - statistik,
+       rak, highlight,
+       progres,
+       hourlog      → tabel `user_data`
+     - buku tayang  → tabel `books`
+     - langganan    → tabel `subscriptions`
+       (plus=penulis, pro=pembaca, ekstra=keduanya)
+     - genre        → tabel `custom_genres` (bawaan + kustom,
+                      bisa diedit/dihapus/pulihkan dari /admin,
+                      lengkap dengan WARNA SAMPUL per genre)
+     - prioritas    → rpc buku_prioritas() → priorSlugs (Jelajah)
+     - egress       → rev-gated cache (catalog_rev)
+     ============================================================ */
+
   const [user, setUser] = useState(() => LS("user"));
   const [theme, setTheme] = useState(() => LS("theme") || "terang");
   const [progress, setProgress] = useState(() => LS("progress") || {});
@@ -46,8 +65,10 @@ export function AppProvider({ children }) {
     SV("goal", v);
   };
 
+  /* draft: mulai dari cache, DITIMPA data server saat login */
   const [drafts, setDrafts] = useState(() => LS("drafts") || []);
 
+  /* ===== data global (cache-first) ===== */
   const [customBooks, setCustomBooks] = useState(() => LS("customBooks") || []);
   const [dbBooks, setDbBooks] = useState(() => LS("dbBooks") || []);
   const [hiddenIds, setHiddenIds] = useState(() => LS("hiddenIds") || []);
@@ -55,6 +76,7 @@ export function AppProvider({ children }) {
   const [views, setViews] = useState(() => LS("views") || {});
   const [isAdmin, setIsAdmin] = useState(false);
 
+  /* ===== langganan: plus=penulis, pro=pembaca, ekstra=keduanya ===== */
   const [subs, setSubs] = useState({ plus: null, pro: null });
   const [customGenres, setCustomGenres] = useState(
     () => LS("customGenres") || [],
@@ -88,6 +110,7 @@ export function AppProvider({ children }) {
     userRef.current = user;
   }, [user]);
 
+  /* ===== persist lokal (peran: CACHE) ===== */
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     SV("theme", theme);
@@ -112,10 +135,11 @@ export function AppProvider({ children }) {
     SV("drafts", drafts);
   }, [drafts]);
 
-  /* muat data global — rev-gated cache */
+  /* ===== muat data global — HEMAT EGRESS (rev-gated cache) ===== */
   useEffect(() => {
     if (!HAS_DB) return;
     (async () => {
+      /* stempel versi — super ringan */
       const { data: revRow } = await supabase
         .from("catalog_rev")
         .select("rev")
@@ -124,6 +148,7 @@ export function AppProvider({ children }) {
       const rev = Number(revRow?.rev ?? 0);
       const revLama = Number(LS("globalRev") ?? -1);
 
+      /* views selalu segar (dipakai intro award) */
       const { data: v } = await supabase.from("views").select("slug,hits");
       if (v) {
         const vm = {};
@@ -132,12 +157,14 @@ export function AppProvider({ children }) {
         SV("views", vm);
       }
 
+      /* prioritas: array slug kecil — selalu segar */
       const { data: pr } = await supabase.rpc("buku_prioritas");
       if (pr) {
         setPriorSlugs(pr);
         SV("priorSlugs", pr);
       }
 
+      /* konten berat HANYA kalau katalog berubah */
       if (rev !== revLama) {
         const [b, g, m, cg] = await Promise.all([
           supabase.from("books").select("slug,data"),
@@ -147,7 +174,7 @@ export function AppProvider({ children }) {
             .select("value")
             .eq("key", "hidden_ids")
             .maybeSingle(),
-          supabase.from("custom_genres").select("nama,mode,oleh"),
+          supabase.from("custom_genres").select("nama,mode,oleh,warna"),
         ]);
         if (b.data) setDbBooks(b.data.map((r) => r.data));
         if (g.data && g.data.length) {
@@ -163,6 +190,7 @@ export function AppProvider({ children }) {
     })();
   }, []);
 
+  /* ===== sesi login + admin + subs ===== */
   const cekAdmin = async (email) => {
     if (!HAS_DB || !email) {
       setIsAdmin(false);
@@ -231,6 +259,7 @@ export function AppProvider({ children }) {
     alert("Gagal sinkron ke server: " + (e?.message || e));
   };
 
+  /* ===== akun ===== */
   const login = async (email, pass) => {
     if (!HAS_DB) return;
     const { error } = await supabase.auth.signInWithPassword({
@@ -259,6 +288,7 @@ export function AppProvider({ children }) {
     hydrated.current = false;
   };
 
+  /* ===== manajemen admin ===== */
   const listAdmin = async () => {
     const { data, error } = await supabase.from("admins").select("email");
     if (error) throw error;
@@ -277,6 +307,7 @@ export function AppProvider({ children }) {
     if (error) throw error;
   };
 
+  /* ===== langganan (verifikasi manual oleh admin) ===== */
   const aktifkanSubs = async (email, paket, bulan) => {
     if (!isAdmin) throw new Error("Hanya admin.");
     if (!["plus", "pro", "ekstra"].includes(paket))
@@ -315,16 +346,20 @@ export function AppProvider({ children }) {
     if (error) gagal(error);
   };
 
-  const addGenre = async (nama, mode = "imersi") => {
+  /* ===== genre: tambah (admin) ===== */
+  const addGenre = async (nama, mode = "imersi", warna) => {
     if (!isAdmin) return;
     const n = (nama || "").trim();
     if (!n) return;
     const { error } = await supabase
       .from("custom_genres")
-      .upsert({ nama: n, mode, oleh: user?.email });
+      .upsert({ nama: n, mode, warna: warna || null, oleh: user?.email });
     if (error) return gagal(error);
     setCustomGenres((g) => {
-      const next = [...g.filter((x) => x.nama !== n), { nama: n, mode }];
+      const next = [
+        ...g.filter((x) => x.nama !== n),
+        { nama: n, mode, warna: warna || null },
+      ];
       SV("customGenres", next);
       return next;
     });
@@ -347,6 +382,57 @@ export function AppProvider({ children }) {
     });
   };
 
+  /* ===== edit genre (ubah nama / mode / warna) ===== */
+  const editGenre = async (namaLama, namaBaru, mode, warna) => {
+    if (!isAdmin) return;
+    const l = (namaLama || "").trim();
+    const b = (namaBaru || "").trim();
+    if (!l || !b) return;
+    const { error } = await supabase
+      .from("custom_genres")
+      .update({ nama: b, mode: mode || "imersi", warna: warna || null })
+      .eq("nama", l);
+    if (error) return gagal(error);
+    const next = customGenres.map((x) =>
+      x.nama === l
+        ? { ...x, nama: b, mode: mode || "imersi", warna: warna || null }
+        : x,
+    );
+    setCustomGenres(next);
+    SV("customGenres", next);
+  };
+
+  /* ===== pulihkan genre bawaan yang terhapus ===== */
+  const restoreGenres = async () => {
+    if (!isAdmin) return;
+    const bawaan = [
+      ["Fiksi", "imersi", "#5B4B8A"],
+      ["Pelajaran", "fokus", "#2F5D50"],
+      ["Sejarah", "linimasa", "#8A5A2B"],
+      ["Puisi", "lambat", "#B3402A"],
+      ["Anak", "ceria", "#C2571F"],
+      ["Umum", "imersi", "#6E675B"],
+    ];
+    const rows = bawaan.map(([nama, mode, warna]) => ({
+      nama,
+      mode,
+      warna,
+      oleh: "bawaan",
+    }));
+    const { error } = await supabase.from("custom_genres").upsert(rows);
+    if (error) return gagal(error);
+    setCustomGenres((g) => {
+      const map = new Map(g.map((x) => [x.nama, x]));
+      rows.forEach((r) => map.set(r.nama, r));
+      const next = [...map.values()];
+      SV("customGenres", next);
+      return next;
+    });
+  };
+
+  /* ============================================================
+     SINKRON STATISTIK & RAK  (tabel user_data)
+     ============================================================ */
   const pushSync = () => {
     const u = userRef.current;
     if (!HAS_DB || !u) return;
@@ -369,6 +455,9 @@ export function AppProvider({ children }) {
       .then(({ error }) => error && console.error("Push gagal:", error));
   };
 
+  /* ============================================================
+     SINKRON DRAFT  (tabel drafts — write-through, debounce 800ms)
+     ============================================================ */
   const flushDrafts = () => {
     const u = userRef.current;
     if (!HAS_DB || !u || !dirtyDrafts.current.size) return;
@@ -397,11 +486,13 @@ export function AppProvider({ children }) {
       });
   };
 
+  /* admin menarik SEMUA draft; user biasa hanya miliknya */
   const pullSync = async (su) => {
     if (!HAS_DB || !su || pulledEmail.current === su.email) return;
     pulledEmail.current = su.email;
     hydrated.current = false;
 
+    /* --- 1. statistik & rak --- */
     const { data, error } = await supabase
       .from("user_data")
       .select("data")
@@ -425,6 +516,7 @@ export function AppProvider({ children }) {
       if (d.goal && Number(d.goal) > 0) setGoalState(Number(d.goal));
     }
 
+    /* --- 2. draft: admin = semua; user biasa = miliknya --- */
     const { data: amAdmin, error: aErr } = await supabase.rpc("is_admin");
     if (aErr) console.warn("is_admin tidak tersedia:", aErr.message);
     let q = supabase
@@ -450,6 +542,7 @@ export function AppProvider({ children }) {
       mine: r.user_id === su.id,
     }));
 
+    /* --- 3. RESCUE sekali jalan: draft yang hanya ada di perangkat ini --- */
     const idServer = new Set(serverDrafts.map((d) => d.id));
     const lokalOnly = (LS("drafts") || []).filter((d) => !idServer.has(d.id));
     const legacy = (data?.data?.drafts || []).filter(
@@ -479,6 +572,7 @@ export function AppProvider({ children }) {
     hydrated.current = true;
   };
 
+  /* auto-push statistik (debounce 1.5 dtk) */
   useEffect(() => {
     if (!HAS_DB || !user || !hydrated.current) return;
     if (skipPush.current) {
@@ -500,6 +594,7 @@ export function AppProvider({ children }) {
     user,
   ]);
 
+  /* auto-push draft (debounce 800ms) */
   useEffect(() => {
     if (!HAS_DB || !user || !hydrated.current) return;
     if (!dirtyDrafts.current.size) return;
@@ -508,6 +603,7 @@ export function AppProvider({ children }) {
     // eslint-disable-next-line
   }, [drafts, user]);
 
+  /* flush saat tab ditutup */
   useEffect(() => {
     if (!HAS_DB) return;
     const f = () => {
@@ -531,6 +627,7 @@ export function AppProvider({ children }) {
     drafts,
   ]);
 
+  /* retry kalau pull pernah gagal */
   useEffect(() => {
     if (!HAS_DB) return;
     const f = () => {
@@ -541,6 +638,7 @@ export function AppProvider({ children }) {
     return () => window.removeEventListener("focus", f);
   }, []);
 
+  /* ===== aksi data pribadi ===== */
   const saveProgress = (bookId, chap, pct) =>
     setProgress((p) => ({ ...p, [bookId]: { chap, pct, at: Date.now() } }));
   const moveTo = (bookId, list) =>
@@ -576,6 +674,7 @@ export function AppProvider({ children }) {
     }));
   };
 
+  /* draft: tulis lokal + tandai kotor → 800ms kemudian naik ke server */
   const saveDraft = (d) => {
     const id = d.id || uid();
     setDrafts((ds) => {
@@ -599,6 +698,7 @@ export function AppProvider({ children }) {
         .then(({ error }) => error && gagal(error));
   };
 
+  /* ===== buku global ===== */
   const addCustomBook = (b) => {
     const existing = [...customBooks, ...dbBooks].find(
       (x) => x.slug === b.slug,
@@ -662,6 +762,7 @@ export function AppProvider({ children }) {
       .then(({ error }) => error && gagal(error));
   };
 
+  /* ===== glosarium ===== */
   const addGlos = async (kata, arti) => {
     const k = (kata || "").trim().toLowerCase();
     const v = (arti || "").trim();
@@ -694,6 +795,7 @@ export function AppProvider({ children }) {
     if (error) gagal(error);
   };
 
+  /* ===== VIEWS ===== */
   const bumpView = async (slug) => {
     if (!HAS_DB) return;
     const k = "sela.viewed." + slug;
@@ -708,6 +810,7 @@ export function AppProvider({ children }) {
     }
   };
 
+  /* ===== REVIEWS ===== */
   const fetchReviews = async (slug) => {
     const { data } = await supabase
       .from("reviews")
@@ -732,6 +835,7 @@ export function AppProvider({ children }) {
     if (error) throw error;
   };
 
+  /* ===== katalog gabungan ===== */
   const books = useMemo(() => {
     const m = new Map();
     [...BOOKS, ...dbBooks, ...customBooks].forEach((b) => {
@@ -741,11 +845,13 @@ export function AppProvider({ children }) {
   }, [dbBooks, customBooks, hiddenIds]);
   const getBook = (slug) => books.find((b) => b.slug === slug);
 
-  const genres = useMemo(() => {
-    const bawaan = ["Fiksi", "Pelajaran", "Sejarah", "Puisi", "Anak", "Umum"];
-    const tambahan = customGenres.map((g) => g.nama);
-    return [...new Set([...bawaan, ...tambahan])];
-  }, [customGenres]);
+  /* genre = semuanya dari DB sekarang (bawaan + kustom) */
+  const genres = useMemo(() => customGenres.map((g) => g.nama), [customGenres]);
+
+  /* ===== WARNA SAMPUL PER GENRE =====
+     DB dulu → fallback warna bawaan kode */
+  const warnaGenre = (genre) =>
+    customGenres.find((g) => g.nama === genre)?.warna || ACC[genre] || ACC.Umum;
 
   return (
     <Ctx.Provider
@@ -764,6 +870,9 @@ export function AppProvider({ children }) {
         genres,
         addGenre,
         removeGenre,
+        editGenre,
+        restoreGenre: restoreGenres,
+        warnaGenre,
         aktifkanSubs,
         listSubs,
         matikanSubs,

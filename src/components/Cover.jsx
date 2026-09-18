@@ -1,7 +1,9 @@
 import { ACC } from "../data/books";
+import { useApp } from "../context/AppContext";
 
 export default function Cover({ book, className = "", big = false }) {
-  const c = ACC[book.genre] || ACC.Umum;
+  const { warnaGenre } = useApp();
+  const c = warnaGenre ? warnaGenre(book.genre) : ACC[book.genre] || ACC.Umum;
   return (
     <div
       className={`relative overflow-hidden rounded-xl shrink-0 ${className}`}
