@@ -17,7 +17,7 @@ function parseMd(md) {
         bab.push(cur);
       }
       const rawBab = buf.join("\n").trim();
-      if (!cur.raw) cur.raw = rawBab; // markdown asli per bab — untuk edit ulang lintas perangkat
+      if (!cur.raw) cur.raw = rawBab; // markdown asli per bab — edit ulang lintas perangkat
       cur.isi.push(...mdToBlocks(rawBab));
     }
     buf = [];
@@ -30,7 +30,7 @@ function parseMd(md) {
         judul: t.replace(/^#\s+/, "").replace(/\*\*/g, "").replace(/\\/g, ""),
         isi: [],
         ringkasan: null,
-        kuis: [], // ← ARRAY: semua @?? terkumpul, tidak ada yang ditimpa
+        kuis: [], // ARRAY: semua @?? terkumpul
       };
       bab.push(cur);
     } else if (/^%%\s?/.test(t)) {
@@ -54,7 +54,7 @@ function parseMd(md) {
           0,
           opts.findIndex((s) => s.endsWith("*")),
         );
-        cur.kuis.push({ q: q.replace(/\\/g, ""), o, a }); // ← PUSH!
+        cur.kuis.push({ q: q.replace(/\\/g, ""), o, a }); // PUSH, bukan timpa
       }
     } else if (t === "") flush();
     else buf.push(l);
@@ -78,7 +78,7 @@ const SISIP = [
 
 export default function StudioEditor() {
   const { id } = useParams();
-  const { user, drafts, saveDraft, addCustomBook, isAdmin } = useApp();
+  const { user, drafts, saveDraft, addCustomBook, isAdmin, subs } = useApp();
   const draft = drafts.find((d) => d.id === id);
   const [pub, setPub] = useState(false);
   const [pane, setPane] = useState("both");
@@ -164,6 +164,8 @@ export default function StudioEditor() {
       durasi: Math.max(5, Math.round(kata / 200)),
       desc: `Ditulis di Studio Sela · ${bab.length} bab.`,
       custom: isAdmin ? PENERBIT_RESMI : "Studio",
+      eksklusif: !!draft.eksklusif,
+      allowDownload: !!draft.allowDownload,
       bab: bab.map((c) => ({ ...c })),
     });
     setPub(true);
@@ -201,6 +203,31 @@ export default function StudioEditor() {
             </option>
           ))}
         </select>
+        {/* eksklusif & izin unduh: hanya admin / pemegang Plus/Ekstra */}
+        {(isAdmin || !!subs?.plus) && (
+          <label
+            title="Hanya pemegang Sela Plus/Pro yang bisa membaca bab 2 ke atas"
+            className="flex items-center gap-1.5 text-[11px] text-ink2 shrink-0">
+            <input
+              type="checkbox"
+              checked={!!draft.eksklusif}
+              onChange={(e) => upd({ eksklusif: e.target.checked })}
+            />
+            Eksklusif
+          </label>
+        )}
+        {(isAdmin || !!subs?.plus) && (
+          <label
+            title="Pembaca Sela Pro/Ekstra boleh mengunduh buku ini sebagai PDF"
+            className="flex items-center gap-1.5 text-[11px] text-ink2 shrink-0">
+            <input
+              type="checkbox"
+              checked={!!draft.allowDownload}
+              onChange={(e) => upd({ allowDownload: e.target.checked })}
+            />
+            Boleh diunduh
+          </label>
+        )}
         <div className="flex-1" />
         {/* penanda mode kolaborasi */}
         {!draft.mine && (

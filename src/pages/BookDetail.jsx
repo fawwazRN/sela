@@ -83,6 +83,7 @@ export default function BookDetail() {
     fetchReviews,
     submitReview,
     deleteReview,
+    subs,
   } = useApp();
   const book = getBook(slug);
   const nav = useNavigate();
@@ -113,6 +114,8 @@ export default function BookDetail() {
   const m = MODE[G2M2[book.genre] || "imersi"];
   const saved = shelf.simpan.includes(book.id);
   const bolehHapus = isAdmin || (user && book.owner === user.email);
+  const bolehEdit =
+    isAdmin || (user && book.owner === user.email) || !!subs?.plus;
   const hits = views[book.slug] || 0;
   const fmtHits =
     hits >= 1000 ? (hits / 1000).toFixed(1).replace(".0", "") + " rb" : hits;
@@ -133,6 +136,123 @@ export default function BookDetail() {
       setMsg(e.message);
     }
     setTimeout(() => setMsg(""), 3000);
+  };
+
+  /* ===== unduh buku ke PDF bergaya (Sela Pro + izin penulis)
+     Cara pakai: di dialog cetak, ganti Destination → "Save as PDF" ===== */
+  const unduhPdf = () => {
+    if (!book?.bab?.length) {
+      alert("Buku ini belum punya bab untuk diunduh.");
+      return;
+    }
+
+    const esc = (s) =>
+      (s || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+
+    const inline = (s) =>
+      esc(s)
+        .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
+        .replace(/\*(.+?)\*/g, "<i>$1</i>")
+        .replace(/`([^`]+)`/g, "<code>$1</code>")
+        .replace(/\{([^}]+)\}/g, "$1");
+
+    const blokKeHtml = (bl) => {
+      if (!bl) return "";
+      if (bl.t === "p") return `<p>${inline(bl.v)}</p>`;
+      if (bl.t === "h")
+        return (bl.lvl || 2) >= 3
+          ? `<h3>${inline(bl.v)}</h3>`
+          : `<h2>${inline(bl.v)}</h2>`;
+      if (bl.t === "ul" && Array.isArray(bl.v))
+        return `<ul>${bl.v.map((li) => `<li>${inline(li)}</li>`).join("")}</ul>`;
+      if (bl.t === "pre") return `<pre><code>${esc(bl.v)}</code></pre>`;
+      if (bl.t === "verse" && Array.isArray(bl.v))
+        return `<div class="verse">${bl.v
+          .map((l) => `<span>${inline(l)}</span>`)
+          .join("")}</div>`;
+      if (bl.t === "quote")
+        return `<blockquote>${(Array.isArray(bl.v) ? bl.v : [])
+          .map((q) =>
+            typeof q === "string"
+              ? `<p>${inline(q)}</p>`
+              : `<p>${inline(q.text || "")}</p>`,
+          )
+          .join("")}</blockquote>`;
+      if (bl.t === "table" && Array.isArray(bl.v) && bl.v.length)
+        return `<table><thead><tr>${bl.v[0]
+          .map((h) => `<th>${inline(h)}</th>`)
+          .join("")}</tr></thead><tbody>${bl.v
+          .slice(1)
+          .map(
+            (row) =>
+              `<tr>${(row || [])
+                .map((cl) => `<td>${inline(cl)}</td>`)
+                .join("")}</tr>`,
+          )
+          .join("")}</tbody></table>`;
+      return ""; /* diagram, tl, dll: dilewati */
+    };
+
+    const babHtml = book.bab
+      .map((ch, i) => {
+        const isi = (ch.isi || []).map(blokKeHtml).join("\n");
+        return `<section class="bab">
+  <p class="bab-no">Bab ${i + 1}</p>
+  <h1>${esc(ch.judul)}</h1>
+  ${isi || "<p><i>(Bab ini belum memiliki isi.)</i></p>"}
+  ${ch.ringkasan ? `<div class="ringkasan"><b>Ringkasan bab</b><p>${esc(ch.ringkasan)}</p></div>` : ""}
+</section>`;
+      })
+      .join("\n");
+
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(book.judul)}</title>
+<style>
+  @page { margin: 2cm; }
+  body{font-family:Georgia,serif;color:#1A1815;max-width:640px;margin:48px auto;line-height:1.85;font-size:16px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .cover{text-align:center;padding:64px 0 40px;border-bottom:2px solid #1A1815;margin-bottom:40px;}
+  .cover h1{font-size:34px;margin:8px 0;}
+  .cover .penulis{letter-spacing:.3em;text-transform:uppercase;font-size:12px;color:#8a8578;}
+  .bab{page-break-before:always;padding-top:24px;}
+  .bab-no{letter-spacing:.35em;text-transform:uppercase;font-size:11px;color:#8a8578;margin:0;}
+  h1{font-size:28px;line-height:1.25;margin:6px 0 26px;}
+  h2{font-size:20px;margin:30px 0 10px;border-bottom:1px solid #e5decd;padding-bottom:6px;}
+  h3{font-size:17px;margin:22px 0 8px;}
+  p{margin:10px 0;}
+  blockquote{border-left:3px solid #B3402A;margin:16px 0;padding:4px 0 4px 16px;font-style:italic;color:#4a463d;}
+  pre{background:#F5F1E6;padding:14px;border-radius:10px;overflow-x:auto;font-size:13px;}
+  code{font-family:Menlo,monospace;font-size:.9em;background:#F5F1E6;padding:1px 5px;border-radius:4px;}
+  table{border-collapse:collapse;width:100%;margin:14px 0;font-size:14px;}
+  th,td{border:1px solid #e5decd;padding:7px 10px;text-align:left;}
+  th{background:#F5F1E6;}
+  .verse{text-align:center;font-style:italic;margin:20px 0;}
+  .verse span{display:block;}
+  .ringkasan{margin-top:28px;background:#F5F1E6;border-radius:12px;padding:14px 18px;font-size:14px;}
+  .ringkasan b{display:block;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:#8a8578;margin-bottom:6px;}
+  .footer{margin-top:56px;padding-top:14px;border-top:1px solid #e5decd;text-align:center;font-size:12px;color:#8a8578;}
+</style></head><body>
+<div class="cover">
+  <p class="penulis">${esc(book.genre)} · Sela</p>
+  <h1>${esc(book.judul)}</h1>
+  <p class="penulis">oleh ${esc(book.penulis)}</p>
+</div>
+ ${babHtml}
+<p class="footer">Diunduh dari Sela — Sela Pro · Dukung penulis dengan ulasan</p>
+<script>window.addEventListener('load',function(){setTimeout(function(){window.print();},400);});</script>
+</body></html>`;
+
+    /* Blob URL: andal — konten terlihat di tab sebelum dialog cetak */
+    const blob = new Blob([html], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    const w = window.open(url, "_blank");
+    if (!w) {
+      alert("Popup diblokir — izinkan popup untuk menyimpan PDF.");
+      URL.revokeObjectURL(url);
+      return;
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
   };
 
   return (
@@ -166,7 +286,12 @@ export default function BookDetail() {
                 {book.judul}
               </h1>
               <p className="mt-2 text-white/70 text-sm">
-                {book.penulis} · {book.genre} · ~{fmtMin(book.durasi)} baca
+                <Link
+                  to={`/penulis/${encodeURIComponent(book.penulis)}`}
+                  className="text-white hover:underline underline-offset-4">
+                  {book.penulis}
+                </Link>{" "}
+                · {book.genre} · ~{fmtMin(book.durasi)} baca
               </p>
               <div className="flex flex-wrap items-center gap-4 mt-3 text-sm">
                 <span className="inline-flex items-center gap-1.5 text-white/70">
@@ -194,6 +319,16 @@ export default function BookDetail() {
                 <span className="bg-white/10 px-2 py-1 rounded text-[10px] text-white/80 uppercase tracking-wider">
                   {m.n}
                 </span>
+                {book.eksklusif && (
+                  <span className="bg-[#F6D860]/20 px-2 py-1 rounded text-[#F6D860] text-[10px] uppercase tracking-wider">
+                    Eksklusif
+                  </span>
+                )}
+                {book.allowDownload && (
+                  <span className="bg-white/10 px-2 py-1 rounded text-[10px] text-white/80 uppercase tracking-wider">
+                    Bisa diunduh (Pro)
+                  </span>
+                )}
               </div>
               <p className="mt-4 max-w-xl text-white/80 text-sm leading-relaxed">
                 {book.desc}
@@ -211,6 +346,28 @@ export default function BookDetail() {
         <button onClick={() => toggleShelf(book.id)} className="btn btn-o">
           {saved ? "★ Tersimpan" : "☆ Simpan"}
         </button>
+        {(() => {
+          const pro = !!subs?.pro || isAdmin;
+          const bolehUnduh =
+            pro &&
+            (!!book.allowDownload || isAdmin || book.owner === user?.email);
+          if (!bolehUnduh) return null;
+          const alasan = !book.allowDownload
+            ? "Buku milikmu sendiri — unduhan tak terbatas"
+            : "Sela Pro · penulis mengizinkan unduhan";
+          return (
+            <button onClick={unduhPdf} className="btn btn-o" title={alasan}>
+              Unduh PDF
+            </button>
+          );
+        })()}
+        {bolehEdit && (
+          <button
+            onClick={() => nav("/studio")}
+            className="!border-accent/40 !text-accent btn btn-o">
+            Edit di Studio
+          </button>
+        )}
         {bolehHapus && (
           <button
             onClick={() => {
@@ -241,7 +398,7 @@ export default function BookDetail() {
       )}
 
       {/* MODE INFO */}
-      <div className="flex items-center gap-3 mt-6 p-4 text-sm card">
+      <div className="flex items-center gap-3 bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] mt-6 p-4 border border-line rounded-2xl text-sm">
         <span className="text-lg">📖</span>
         <div>
           <b>{m.n}</b> <span className="text-ink2">— {m.d}</span>
@@ -251,12 +408,16 @@ export default function BookDetail() {
       {/* DAFTAR ISI */}
       <section className="mt-10">
         <p className="mb-3 lbl">Daftar isi</p>
-        <div className="divide-y divide-line overflow-hidden card">
+        <div className="bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] border border-line rounded-2xl divide-y divide-line overflow-hidden">
           {book.bab.map((ch, i) => {
             const prev =
               ch.isi
                 ?.find((b) => b.t === "p")
                 ?.v?.replace(/\{|\}|<[^>]+>/g, "") || "";
+            const terkunciBab =
+              book.eksklusif &&
+              !(isAdmin || !!subs?.plus || !!subs?.pro) &&
+              i > 0;
             return (
               <Link
                 key={i}
@@ -268,9 +429,16 @@ export default function BookDetail() {
                 <span className="min-w-0">
                   <span className="block font-medium group-hover:underline underline-offset-4">
                     {ch.judul}
+                    {terkunciBab && (
+                      <span className="ml-2 text-[#8a6d1d] text-[10px]">
+                        🔒 Plus/Pro
+                      </span>
+                    )}
                   </span>
                   <span className="block opacity-0 group-hover:opacity-100 mt-0.5 text-ink2 text-sm transition-opacity">
-                    {prev.slice(0, 130)}
+                    {terkunciBab
+                      ? "Terbuka untuk pemegang Sela Plus / Pro"
+                      : prev.slice(0, 130)}
                   </span>
                 </span>
                 {p?.chap === i && (
@@ -288,7 +456,7 @@ export default function BookDetail() {
       <section className="mt-12 pb-10">
         <p className="mb-3 lbl">Rating & ulasan</p>
 
-        <div className="p-5 card">
+        <div className="bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] p-5 border border-line rounded-2xl">
           {user ? (
             <>
               <p className="font-display font-semibold">
@@ -330,7 +498,9 @@ export default function BookDetail() {
 
         <div className="space-y-3 mt-4">
           {(ulasan || []).map((r) => (
-            <div key={r.id} className="p-4 card">
+            <div
+              key={r.id}
+              className="bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] p-4 border border-line rounded-2xl">
               <div className="flex items-center gap-3">
                 <Avatar r={r} />
                 <div className="flex-1 min-w-0">

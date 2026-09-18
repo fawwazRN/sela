@@ -8,6 +8,7 @@ const KOLOM = [
       ["/kurasi/bikin-paham", "Rak kurasi"],
       ["/glosarium", "Glosarium"],
       ["/catatan", "Catatan"],
+      ["/premium", "Sela Plus & Pro"], // ← TAMBAH INI
     ],
   },
   {

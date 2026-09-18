@@ -232,7 +232,17 @@ function Ring({ p, size = 84 }) {
 }
 
 export default function Stats() {
-  const { readlog, finished, books, bookTime, user, goal } = useApp();
+  const {
+    readlog,
+    hourlog,
+    finished,
+    books,
+    bookTime,
+    user,
+    goal,
+    subs,
+    isAdmin,
+  } = useApp();
 
   /* ===== angka aman ===== */
   const targetAman = Number(goal) > 0 ? Number(goal) : 20;
@@ -335,6 +345,135 @@ export default function Stats() {
           ))}
         </div>
       </div>
+
+      {/* ===== STATISTIK LANJUTAN (Sela Pro) ===== */}
+      {(!!subs?.pro || isAdmin) && (
+        <>
+          <p className="mt-10 mb-3 lbl">
+            Statistik lanjutan
+            <span className="bg-[#F6D860]/20 ml-2 px-1.5 py-0.5 rounded text-[#8a6d1d] text-[9px] uppercase align-middle tracking-wider">
+              Pro
+            </span>
+          </p>
+          <div className="space-y-6 bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] p-5 border border-line rounded-2xl">
+            {/* rata-rata 4 minggu */}
+            {(() => {
+              let mnt4 = 0;
+              for (let i = 0; i < 28; i++) {
+                const dt = new Date();
+                dt.setDate(dt.getDate() - i);
+                mnt4 += (readlog[dt.toISOString().slice(0, 10)] || 0) / 60;
+              }
+              return (
+                <div>
+                  <p className="font-display font-semibold text-sm">
+                    Rata-rata 4 minggu terakhir
+                  </p>
+                  <p className="text-ink2 text-sm">
+                    <b className="text-ink text-lg">
+                      {fmtMin(Math.round(mnt4 / 4))}
+                    </b>{" "}
+                    per minggu ({Math.round(mnt4 / 28)} mnt/hari)
+                  </p>
+                </div>
+              );
+            })()}
+
+            {/* jam favorit */}
+            <div>
+              <p className="font-display font-semibold text-sm">
+                Jam favorit membaca
+              </p>
+              <div className="flex items-end gap-[3px] mt-2 h-16">
+                {Array.from({ length: 24 }, (_, h) => {
+                  const v = Math.max(...Object.values(hourlog || {}), 1);
+                  const n = hourlog?.[h] || 0;
+                  return (
+                    <div
+                      key={h}
+                      title={`${h}:00 — ${Math.round(n / 60)} mnt`}
+                      className="flex-1 rounded-t"
+                      style={{
+                        height: `${Math.max(4, (n / v) * 100)}%`,
+                        background:
+                          n > 0
+                            ? "var(--c-accent,#B3402A)"
+                            : "var(--c-line,#e5decd)",
+                        opacity: n > 0 ? 0.45 + 0.55 * (n / v) : 1,
+                      }}
+                    />
+                  );
+                })}
+              </div>
+              <div className="flex justify-between mt-1 text-[9px] text-ink2">
+                <span>0</span>
+                <span>6</span>
+                <span>12</span>
+                <span>18</span>
+                <span>23</span>
+              </div>
+              {(() => {
+                const entri = Object.entries(hourlog || {});
+                if (!entri.length) return null;
+                const [hTerbaik] = entri.sort((a, b) => b[1] - a[1])[0];
+                return (
+                  <p className="mt-1 text-ink2 text-xs">
+                    Paling produktif jam{" "}
+                    <b className="text-ink">
+                      {String(hTerbaik).padStart(2, "0")}:00
+                    </b>
+                  </p>
+                );
+              })()}
+            </div>
+
+            {/* genre terbanyak */}
+            <div>
+              <p className="font-display font-semibold text-sm">
+                Genre yang paling kamu baca
+              </p>
+              {(() => {
+                const perGenre = {};
+                Object.entries(bookTime || {}).forEach(([bid, det]) => {
+                  const b = books.find((x) => x.id === bid);
+                  if (b)
+                    perGenre[b.genre] = (perGenre[b.genre] || 0) + det / 60;
+                });
+                const rows = Object.entries(perGenre).sort(
+                  (a, b) => b[1] - a[1],
+                );
+                const max = Math.max(...rows.map((r) => r[1]), 1);
+                if (!rows.length)
+                  return (
+                    <p className="mt-1 text-ink2 text-xs">
+                      Belum ada data waktu baca per buku.
+                    </p>
+                  );
+                return (
+                  <div className="space-y-1.5 mt-2">
+                    {rows.map(([g, mnt]) => (
+                      <div key={g} className="flex items-center gap-2">
+                        <span className="w-20 text-[11px] text-ink2 truncate shrink-0">
+                          {g}
+                        </span>
+                        <div className="flex-1 bg-line rounded h-2 overflow-hidden">
+                          <div
+                            className="bg-accent h-full"
+                            style={{ width: `${(mnt / max) * 100}%` }}
+                          />
+                        </div>
+                        <span className="w-16 tabular-nums text-[10px] text-ink2 text-right shrink-0">
+                          {fmtMin(Math.round(mnt))}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </>
+      )}
 
       <p className="mt-10 mb-3 lbl">Kartu bacaan</p>
       <div className="space-y-3 pb-10">

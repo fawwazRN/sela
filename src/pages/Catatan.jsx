@@ -47,13 +47,13 @@ const distSeg = (p, x1, y1, x2, y2) => {
     dy = y2 - y1;
   const tt = Math.max(
     0,
-    Math.min(1, ((p.x - x1) * dx + (p.y - y1) * dy) / (dx * dx + dy * dy || 1)),
+    Math.min(1, ((p.x - x1) * dx + (p.y - x1) * dy) / (dx * dx + dy * dy || 1)),
   );
   return Math.hypot(p.x - (x1 + tt * dx), p.y - (y1 + tt * dy));
 };
 
 export default function Catatan() {
-  const { user } = useApp();
+  const { user, subs, isAdmin } = useApp();
   const [notes, setNotes] = useState(null);
   const [aktifId, setAktifId] = useState(null);
   const [tool, setTool] = useState("pilih");
@@ -815,6 +815,50 @@ export default function Catatan() {
     a.click();
   };
 
+  /* ===== ekspor catatan ke PDF (Sela Pro) — via cetak ===== */
+  const eksporPdf = () => {
+    if (!aktif) return;
+    const esc = (s) =>
+      (s || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    const isi = (aktif.elements || [])
+      .map((e) => {
+        if (e.type === "kotak" || e.type === "sticky")
+          return `<div class="kotak" style="border-color:${e.color};background:${e.color}${e.type === "sticky" ? "" : "14"}">${esc(e.text).replace(/\n/g, "<br/>")}</div>`;
+        if (e.type === "teks")
+          return `<p class="teks" style="color:${e.color}">${esc(e.text).replace(/\n/g, "<br/>")}</p>`;
+        if (e.type === "pena")
+          return `<svg class="pena" viewBox="0 0 400 40"><polyline fill="none" stroke="${e.color}" stroke-width="2.5" stroke-linecap="round" points="${e.points
+            .slice(0, 60)
+            .map((q) => `${(q.x % 400).toFixed(0)},${(q.y % 40).toFixed(0)}`)
+            .join(" ")}"/></svg>`;
+        return "";
+      })
+      .join("\n");
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(aktif.judul)}</title>
+<style>
+  body{font-family:Georgia,serif;max-width:680px;margin:40px auto;color:#1A1815;}
+  h1{font-size:26px;margin:0 0 4px;}
+  .sub{color:#8a8578;font-size:12px;letter-spacing:.15em;text-transform:uppercase;margin-bottom:28px;}
+  .kotak{border:1.5px solid;border-left-width:5px;border-radius:10px;padding:10px 14px;margin:8px 0;font-size:14px;}
+  .teks{margin:6px 0;font-size:14px;}
+  .pena{width:180px;height:22px;display:block;margin:6px 0;}
+  hr{border:none;border-top:1px solid #ddd;margin:22px 0;}
+</style></head><body>
+<h1>${esc(aktif.judul)}</h1>
+<p class="sub">Sela · Catatan · ${new Date().toLocaleDateString("id-ID")}</p>
+<hr/>
+ ${isi || "<p><i>Catatan masih kosong.</i></p>"}
+</body></html>`;
+    const w = window.open("", "_blank");
+    if (!w) return alert("Popup diblokir — izinkan popup untuk mengunduh PDF.");
+    w.document.write(html);
+    w.document.close();
+    setTimeout(() => w.print(), 500);
+  };
+
   /* ===== CRUD ===== */
   const baru = async () => {
     const { data } = await supabase
@@ -980,6 +1024,14 @@ export default function Catatan() {
                 className="!px-2.5 !py-1 text-[11px] chip">
                 PNG
               </button>
+              {(!!subs?.pro || isAdmin) && (
+                <button
+                  onClick={eksporPdf}
+                  title="Sela Pro — ekspor rapi siap cetak/PDF"
+                  className="!px-2.5 !py-1 text-[11px] chip">
+                  PDF
+                </button>
+              )}
               {!!selIds.length && (
                 <button
                   onClick={hapusSel}

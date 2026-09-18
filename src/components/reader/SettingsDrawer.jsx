@@ -1,10 +1,17 @@
+import { useNavigate } from "react-router";
 import { useApp } from "../../context/AppContext";
 
-const THEMES = [
+/* dasar: semua orang. premium: pemegang Pro / Ekstra / admin */
+const DASAR = [
   ["terang", "Terang"],
   ["sepia", "Sepia"],
   ["gelap", "Gelap"],
 ];
+const PREMIUM = [
+  ["midnight", "Midnight"],
+  ["forest", "Forest"],
+];
+
 const MODES = [
   ["fokus", "Fokus"],
   ["imersi", "Imersi"],
@@ -21,8 +28,48 @@ export default function SettingsDrawer({
   rfs,
   setRfs,
 }) {
-  const { theme, setTheme } = useApp();
+  const { theme, setTheme, subs, isAdmin } = useApp();
+  const nav = useNavigate();
   if (!open) return null;
+  const pro = !!subs?.pro || isAdmin;
+
+  const TemaBtn = ([id, n], premium) => {
+    const terbuka = !premium || pro;
+    return (
+      <button
+        key={id}
+        onClick={() => (terbuka ? setTheme(id) : nav("/premium"))}
+        className={`rounded-xl border p-2 text-xs relative ${
+          theme === id
+            ? "border-ink font-medium"
+            : "border-line hover:border-ink"
+        }`}>
+        <span
+          className="block mb-1.5 rounded-md h-8"
+          style={{
+            background:
+              id === "terang"
+                ? "#F7F3EA"
+                : id === "sepia"
+                  ? "#E9DCC0"
+                  : id === "gelap"
+                    ? "#151310"
+                    : id === "midnight"
+                      ? "#0f1420"
+                      : "#0f1712",
+            border: "1px solid #0002",
+          }}
+        />
+        {n}
+        {premium && !pro && (
+          <span className="top-1 right-1 absolute bg-ink px-1 rounded text-[8px] text-paper uppercase">
+            Pro
+          </span>
+        )}
+      </button>
+    );
+  };
+
   return (
     <>
       <div className="z-40 fixed inset-0 bg-black/30" onClick={onClose} />
@@ -34,28 +81,21 @@ export default function SettingsDrawer({
           </button>
         </div>
         <p className="mb-2 lbl">Tema</p>
-        <div className="gap-2 grid grid-cols-3 mb-6">
-          {THEMES.map(([id, n]) => (
-            <button
-              key={id}
-              onClick={() => setTheme(id)}
-              className={`rounded-xl border p-2 text-xs ${theme === id ? "border-ink font-medium" : "border-line"}`}>
-              <span
-                className="block mb-1.5 rounded-md h-8"
-                style={{
-                  background:
-                    id === "terang"
-                      ? "#F7F3EA"
-                      : id === "sepia"
-                        ? "#E9DCC0"
-                        : "#151310",
-                  border: "1px solid #0002",
-                }}
-              />
-              {n}
-            </button>
-          ))}
+        <div className="gap-2 grid grid-cols-3 mb-2">
+          {DASAR.map((t) => TemaBtn(t, false))}
         </div>
+        <div className="gap-2 grid grid-cols-2 mb-1">
+          {PREMIUM.map((t) => TemaBtn(t, true))}
+        </div>
+        {!pro && (
+          <button
+            onClick={() => nav("/premium")}
+            className="mb-6 text-[11px] text-accent underline underline-offset-4">
+            Buka tema eksklusif dengan Sela Pro →
+          </button>
+        )}
+        {pro && <div className="mb-6" />}
+
         <p className="mb-2 lbl">Ukuran huruf — {rfs}px</p>
         <input
           type="range"
@@ -71,7 +111,11 @@ export default function SettingsDrawer({
             <button
               key={id}
               onClick={() => setMode(id)}
-              className={`text-left px-4 py-2.5 rounded-xl border text-sm ${mode === id ? "border-ink bg-line/40 font-medium" : "border-line"}`}>
+              className={`text-left px-4 py-2.5 rounded-xl border text-sm ${
+                mode === id
+                  ? "border-ink bg-line/40 font-medium"
+                  : "border-line"
+              }`}>
               {n}
               {mode === id && " ●"}
             </button>

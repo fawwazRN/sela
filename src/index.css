@@ -282,3 +282,26 @@ input[type="range"] {
     linear-gradient(90deg, rgba(47, 93, 80, 0.12) 1px, transparent 1px);
   background-size: 24px 24px;
 }
+
+/* ===== TEMA PREMIUM (Sela Pro) ===== */
+[data-theme="midnight"] {
+  --c-paper: #0f1420;
+  --c-line: #232c42;
+  --c-ink: #e6eaf4;
+  --c-ink2: #8a93ab;
+  --c-accent: #7c9cff;
+}
+[data-theme="forest"] {
+  --c-paper: #0f1712;
+  --c-line: #22352a;
+  --c-ink: #e8f0e6;
+  --c-ink2: #8fa694;
+  --c-accent: #7fbf8e;
+}
+
+/* ===== GAYA CETAK PDF (buku & catatan) ===== */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}

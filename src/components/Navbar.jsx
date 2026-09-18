@@ -40,7 +40,7 @@ function Pill({ links, lokasi }) {
 }
 
 export default function Navbar({ onSearch }) {
-  const { user, logout, isAdmin } = useApp();
+  const { user, logout, isAdmin, subs } = useApp();
   const [open, setOpen] = useState(false);
   const [menu, setMenu] = useState(false);
   const [susut, setSusut] = useState(false);
@@ -88,14 +88,13 @@ export default function Navbar({ onSearch }) {
     ["/saya", "Rak saya", "M4 6h16v14H4zM8 6v14"],
     ["/saya/statistik", "Statistik", "M4 20V10M10 20V4M16 20v-6"],
     ["/saya/pengaturan", "Pengaturan", "M12 8a4 4 0 100 8 4 4 0 000-8z"],
+    [
+      "/premium",
+      "Sela Plus & Pro",
+      "M12 2l2.9 6.26 6.6.57-5 4.36 1.5 6.45L12 16.9 5.99 19.64l1.5-6.45-5-4.36 6.6-.57L12 2z",
+    ],
     ...(isAdmin
-      ? [
-          [
-            "/admin",
-            "Panel Admin ★",
-            "M12 2l8 4v6c0 5-4 8-8 10-4-2-8-5-8-10V6z",
-          ],
-        ]
+      ? [["/admin", "Panel Admin", "M12 2l8 4v6c0 5-4 8-8 10-4-2-8-5-8-10V6z"]]
       : []),
   ];
 
@@ -159,6 +158,19 @@ export default function Navbar({ onSearch }) {
                     </svg>
                   </span>
                 )}
+                {!isAdmin && !!subs?.pro && (
+                  <span
+                    className="-right-0.5 -bottom-0.5 absolute place-items-center grid bg-[#F6D860] border border-paper rounded-full w-4 h-4 text-[#14110e]"
+                    title="Pendukung Sela Pro">
+                    <svg
+                      width="8"
+                      height="8"
+                      viewBox="0 0 24 24"
+                      fill="currentColor">
+                      <path d="M12 2l2.9 6.26 6.6.57-5 4.36 1.5 6.45L12 16.9 5.99 19.64l1.5-6.45-5-4.36 6.6-.57L12 2z" />
+                    </svg>
+                  </span>
+                )}
               </button>
               {menu && (
                 <div className="right-0 absolute bg-paper shadow-[0_12px_32px_rgba(26,24,21,0.16)] mt-3 p-1.5 border border-line rounded-2xl w-56 overflow-hidden fadein">
@@ -172,6 +184,11 @@ export default function Navbar({ onSearch }) {
                         {isAdmin && (
                           <span className="ml-1 font-semibold text-[10px] text-accent">
                             · ADMIN
+                          </span>
+                        )}
+                        {!isAdmin && !!subs?.pro && (
+                          <span className="ml-1 font-semibold text-[#8a6d1d] text-[10px]">
+                            · PRO
                           </span>
                         )}
                       </p>
@@ -282,14 +299,22 @@ export default function Navbar({ onSearch }) {
             </NavLink>
           ))}
           {user ? (
-            <NavLink
-              to="/saya"
-              onClick={() => setOpen(false)}
-              className={({ isActive }) =>
-                `py-2.5 px-3 rounded-lg text-sm ${isActive ? "bg-line/50 font-medium" : "text-ink2"}`
-              }>
-              Rak saya
-            </NavLink>
+            <>
+              <NavLink
+                to="/saya"
+                onClick={() => setOpen(false)}
+                className={({ isActive }) =>
+                  `py-2.5 px-3 rounded-lg text-sm ${isActive ? "bg-line/50 font-medium" : "text-ink2"}`
+                }>
+                Rak saya
+              </NavLink>
+              <NavLink
+                to="/premium"
+                onClick={() => setOpen(false)}
+                className="px-3 py-2.5 rounded-lg font-medium text-[#8a6d1d] text-sm">
+                Sela Plus & Pro
+              </NavLink>
+            </>
           ) : (
             <Link
               to="/masuk"

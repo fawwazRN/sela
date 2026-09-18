@@ -34,7 +34,7 @@ function Bars({ isi, ukuran = 12 }) {
 }
 
 export default function Jelajah() {
-  const { books, views, progress, fetchReviews } = useApp();
+  const { books, views, progress, fetchReviews, priorSlugs } = useApp();
   const [sp, setSp] = useSearchParams();
   const genre = sp.get("genre") || "Semua";
   const mode = sp.get("mode") || "Semua";
@@ -73,10 +73,10 @@ export default function Jelajah() {
         (mode === "Semua" || (G2M2[b.genre] || "imersi") === mode) &&
         (!q || (b.judul + b.penulis).toLowerCase().includes(q.toLowerCase())),
     );
-    if (urut === "populer")
-      out = [...out].sort(
-        (a, b) => (views[b.slug] || 0) - (views[a.slug] || 0),
-      );
+    /* prioritas: buku milik penulis Plus aktif melompat ke atas */
+    const skor = (b) =>
+      (priorSlugs.includes(b.slug) ? 1e9 : 0) + (views[b.slug] || 0);
+    if (urut === "populer") out = [...out].sort((a, b) => skor(b) - skor(a));
     if (urut === "rating")
       out = [...out].sort(
         (a, b) => (ratings[b.slug] || 0) - (ratings[a.slug] || 0),
@@ -85,7 +85,7 @@ export default function Jelajah() {
       out = [...out].sort((a, b) => a.judul.localeCompare(b.judul));
     if (urut === "lama") out = [...out].sort((a, b) => a.durasi - b.durasi);
     return out;
-  }, [books, genre, mode, urut, q, views, ratings]);
+  }, [books, genre, mode, urut, q, views, ratings, priorSlugs]);
 
   const filterAktif = [
     genre !== "Semua" && { k: "genre", label: genre },
@@ -99,6 +99,9 @@ export default function Jelajah() {
   const hitungGenre = (g) =>
     g === "Semua" ? books.length : books.filter((b) => b.genre === g).length;
   const totalViews = books.reduce((a, b) => a + (views[b.slug] || 0), 0);
+
+  const fmtViews = (n) =>
+    n >= 1000 ? (n / 1000).toFixed(1).replace(".0", "") + " rb" : n;
 
   return (
     <div className="mx-auto px-5 pt-12 max-w-6xl fadein">
@@ -117,7 +120,6 @@ export default function Jelajah() {
             backgroundSize: "22px 22px",
           }}
         />
-        {/* sampul melayang dekoratif */}
         <div className="hidden top-1/2 right-6 absolute lg:flex gap-3 opacity-25 -translate-y-1/2 pointer-events-none">
           {[
             ["K", "#F6D860"],
@@ -261,7 +263,7 @@ export default function Jelajah() {
               <Link
                 key={b.id}
                 to={`/buku/${b.slug}`}
-                className="relative flex items-center gap-4 p-3 overflow-hidden transition-colors">
+                className="relative flex items-center gap-4 bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] p-3 border border-line hover:border-ink rounded-2xl overflow-hidden transition-colors">
                 <span
                   className="top-0 bottom-0 left-0 absolute w-1"
                   style={{ background: c }}
@@ -270,6 +272,11 @@ export default function Jelajah() {
                 <div className="flex-1 min-w-0">
                   <p className="font-display font-semibold truncate">
                     {b.judul}
+                    {b.eksklusif && (
+                      <span className="bg-[#F6D860]/20 ml-2 px-1.5 py-0.5 rounded text-[#8a6d1d] text-[9px] uppercase tracking-wider">
+                        Eksklusif
+                      </span>
+                    )}
                   </p>
                   <p className="text-ink2 text-xs">
                     {b.penulis} · {b.genre}
@@ -315,6 +322,3 @@ export default function Jelajah() {
     </div>
   );
 }
-
-const fmtViews = (n) =>
-  n >= 1000 ? (n / 1000).toFixed(1).replace(".0", "") + " rb" : n;

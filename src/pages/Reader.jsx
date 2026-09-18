@@ -23,10 +23,16 @@ export default function Reader() {
     shelf,
     moveTo,
     bumpView,
+    subs,
+    isAdmin,
   } = useApp();
   const [sp] = useSearchParams();
   const book = books.find((b) => b.slug === slug);
   const saved = book ? progress[book.id] : null;
+
+  /* hak akses penuh: admin, Plus, atau Pro */
+  const bolehPenuh = isAdmin || !!subs?.plus || !!subs?.pro;
+  const eksklusif = !!book?.eksklusif;
 
   /* tamu: selalu bab 1; login: lanjutkan posisi */
   const [chap, setChap] = useState(() => {
@@ -38,8 +44,12 @@ export default function Reader() {
   });
   const [gate, setGate] = useState(false);
 
+  /* terkunci = eksklusif + bukan anggota + bukan bab 1
+     (menangkap juga deep-link ?bab=3 dan progres lama) */
+  const terkunci = eksklusif && !bolehPenuh && chap > 0;
+
   const mintaGanti = (c) => {
-    if (!user && c > 0) {
+    if ((!user || (eksklusif && !bolehPenuh)) && c > 0) {
       setGate(true);
       window.scrollTo(0, 0);
       return;
@@ -144,7 +154,7 @@ export default function Reader() {
     // eslint-disable-next-line
   }, []);
 
-  /* ===== pencatat waktu: total harian + per buku, hanya saat benar-benar membaca ===== */
+  /* ===== pencatat waktu: total harian + per buku ===== */
   useEffect(() => {
     const iv = setInterval(() => {
       const membaca =
@@ -219,6 +229,8 @@ export default function Reader() {
   const seek = (p) =>
     window.scrollTo(0, (document.body.scrollHeight - innerHeight) * p);
 
+  const tampilGate = gate || terkunci;
+
   return (
     <div className="pb-24">
       <ReaderShell
@@ -234,23 +246,52 @@ export default function Reader() {
       />
       <Minimap pct={pct} onSeek={seek} />
       <article className="px-5 pt-24">
-        {gate ? (
+        {tampilGate ? (
+          /* ===== GERBANG: tamu / non-anggota ===== */
           <div className="mx-auto py-20 max-w-md text-center fadein">
             <p className="text-5xl">🔒</p>
-            <h2 className="mt-4 font-display font-bold text-2xl leading-snug">
-              Bab selanjutnya untuk pembaca terdaftar
-            </h2>
-            <p className="mt-3 text-ink2 text-sm leading-relaxed">
-              Gratis, cukup satu menit. Bab 1 tetap bisa kamu baca tanpa akun.
-            </p>
-            <div className="flex justify-center gap-3 mt-7">
-              <Link to="/masuk" className="btn btn-p">
-                Masuk / Daftar
-              </Link>
-              <button onClick={() => mintaGanti(0)} className="btn btn-o">
-                Kembali ke bab 1
-              </button>
-            </div>
+            {!user ? (
+              <>
+                <h2 className="mt-4 font-display font-bold text-2xl leading-snug">
+                  Bab selanjutnya untuk pembaca terdaftar
+                </h2>
+                <p className="mt-3 text-ink2 text-sm leading-relaxed">
+                  Gratis, cukup satu menit. Bab 1 tetap bisa kamu baca tanpa
+                  akun.
+                </p>
+                <div className="flex justify-center gap-3 mt-7">
+                  <Link to="/masuk" className="btn btn-p">
+                    Masuk / Daftar
+                  </Link>
+                  <button onClick={() => mintaGanti(0)} className="btn btn-o">
+                    Kembali ke bab 1
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h2 className="mt-4 font-display font-bold text-2xl leading-snug">
+                  Cerita eksklusif Sela
+                </h2>
+                <p className="mt-3 text-ink2 text-sm leading-relaxed">
+                  Bab 1 bebas dibaca. Bab berikutnya terbuka untuk pemegang{" "}
+                  <b className="text-ink">Sela Plus</b> dan{" "}
+                  <b className="text-ink">Sela Pro</b> — sekaligus dukungan
+                  langsung untuk penulisnya.
+                </p>
+                <div className="flex justify-center gap-3 mt-7">
+                  <Link
+                    to="/premium"
+                    state={{ from: `/baca/${book.slug}` }}
+                    className="btn btn-p">
+                    Buka dengan Sela Plus →
+                  </Link>
+                  <button onClick={() => mintaGanti(0)} className="btn btn-o">
+                    Kembali ke bab 1
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         ) : (
           <>

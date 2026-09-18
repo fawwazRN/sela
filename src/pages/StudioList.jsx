@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { useNavigate, Link } from "react-router";
 import { useApp } from "../context/AppContext";
 import { fmtDate } from "../lib/utils";
+import { supabase } from "../lib/supabase";
 
 /* ===== bangun ulang markdown satu bab dari buku ter-publish ===== */
 const babKeMd = (c) => {
@@ -63,8 +65,10 @@ export default function StudioList() {
     books,
     removeCustomBook,
     isAdmin,
+    subs,
   } = useApp();
   const nav = useNavigate();
+  const [funnel, setFunnel] = useState(null);
 
   /* ===== GERBANG LOGIN ===== */
   if (!user)
@@ -101,10 +105,39 @@ export default function StudioList() {
     (b) => b.custom && (isAdmin || b.owner === user.email),
   );
 
-  /* edit cerdas lintas admin:
-     - draft ada       → langsung buka, pastikan target terisi
-     - draft tidak ada → bangun ulang dari buku ter-publish,
-       ID & target tetap → publish ulang MENIMPA buku yang sama */
+  /* ===== GATING: gratis = 3 buku, Sela Plus = tanpa batas ===== */
+  const bukuSaya = books.filter(
+    (b) => b.custom && b.owner === user.email,
+  ).length;
+  const plusAktif = !!subs?.plus;
+
+  const cekKuota = () => {
+    if (plusAktif || isAdmin) return true;
+    if (bukuSaya >= 3) {
+      if (
+        confirm(
+          `Paket gratis membatasi 3 buku (kamu punya ${bukuSaya}).\n` +
+            `Buka Sela Plus untuk buku tanpa batas?`,
+        )
+      ) {
+        nav("/premium");
+      }
+      return false;
+    }
+    return true;
+  };
+
+  /* ===== FUNNEL: di bab mana pembaca berhenti ===== */
+  const bukaFunnel = async (b) => {
+    if (funnel?.bid === b.id) {
+      setFunnel(null);
+      return;
+    }
+    const { data } = await supabase.rpc("funnel_buku", { bid: b.id });
+    setFunnel({ bid: b.id, judul: b.judul, rows: data || [] });
+  };
+
+  /* edit cerdas lintas admin */
   const editBook = (b) => {
     const draftId = b.slug.startsWith("studio-") ? b.slug.slice(7) : null;
 
@@ -128,6 +161,7 @@ export default function StudioList() {
   };
 
   const baru = () => {
+    if (!cekKuota()) return;
     const id = saveDraft({
       judul: "Tanpa Judul",
       genre: "Fiksi",
@@ -159,8 +193,20 @@ export default function StudioList() {
               Studio
             </h1>
             <p className="mt-2 text-white/70 text-sm">
-              {drafts.length} draft · {published.length} buku tayang
+              {drafts.length} draft · {published.length} buku tayang ·{" "}
+              {plusAktif || isAdmin ? (
+                <span className="font-medium text-[#F6D860]">Sela Plus</span>
+              ) : (
+                `${bukuSaya}/3 buku (gratis)`
+              )}
             </p>
+            {!plusAktif && !isAdmin && (
+              <Link
+                to="/premium"
+                className="inline-block mt-1 text-[#F6D860] text-[11px] underline underline-offset-4">
+                Buka batas dengan Sela Plus →
+              </Link>
+            )}
           </div>
           <button onClick={baru} className="btn btn-p shrink-0">
             + Tulis baru
@@ -190,7 +236,6 @@ export default function StudioList() {
             </span>
             <Link to={`/studio/${d.id}`} className="flex-1 min-w-0">
               <p className="font-medium text-sm truncate">{d.judul}</p>
-              {/* penanda draft milik admin lain */}
               <p className="text-ink2 text-xs">
                 {d.genre} · diubah {fmtDate(d.at)}
                 {!d.mine && (
@@ -231,29 +276,106 @@ export default function StudioList() {
             {published.map((b) => (
               <div
                 key={b.id}
-                className="flex items-center gap-3 bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] p-4 border border-line rounded-2xl">
-                <Link
-                  to={`/buku/${b.slug}`}
-                  className="flex-1 min-w-0 hover:underline underline-offset-4">
-                  <p className="font-medium text-sm truncate">{b.judul}</p>
-                  <p className="text-ink2 text-xs">
-                    {b.bab.length} bab · oleh {b.penulis} · {b.genre}
-                  </p>
-                </Link>
-                {/* Edit untuk SEMUA buku custom (admin) */}
-                <button
-                  onClick={() => editBook(b)}
-                  className="text-xs hover:underline shrink-0">
-                  Edit
-                </button>
-                <button
-                  onClick={() => {
-                    if (confirm(`Hapus "${b.judul}" dari katalog?`))
-                      removeCustomBook(b.slug);
-                  }}
-                  className="text-accent text-xs hover:underline shrink-0">
-                  hapus
-                </button>
+                className="bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] border border-line rounded-2xl overflow-hidden">
+                <div className="flex items-center gap-3 p-4">
+                  <Link
+                    to={`/buku/${b.slug}`}
+                    className="flex-1 min-w-0 hover:underline underline-offset-4">
+                    <p className="font-medium text-sm truncate">
+                      {b.judul}
+                      {b.eksklusif && (
+                        <span className="bg-[#F6D860]/20 ml-2 px-1.5 py-0.5 rounded text-[#8a6d1d] text-[9px] uppercase tracking-wider">
+                          Eksklusif
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-ink2 text-xs">
+                      {b.bab.length} bab · oleh {b.penulis} · {b.genre}
+                    </p>
+                  </Link>
+                  {(isAdmin || !!subs?.plus) && (
+                    <button
+                      onClick={() => bukaFunnel(b)}
+                      className="text-xs hover:underline shrink-0">
+                      Pembaca
+                    </button>
+                  )}
+                  <button
+                    onClick={() => editBook(b)}
+                    className="text-xs hover:underline shrink-0">
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (confirm(`Hapus "${b.judul}" dari katalog?`))
+                        removeCustomBook(b.slug);
+                    }}
+                    className="text-accent text-xs hover:underline shrink-0">
+                    hapus
+                  </button>
+                </div>
+                {/* PANEL FUNNEL */}
+                {funnel?.bid === b.id && (
+                  <div className="px-4 py-4 border-line border-t">
+                    {(() => {
+                      const data = funnel.rows.map((r) => ({
+                        chap: Number(r.chap),
+                        n: Number(r.pembaca),
+                      }));
+                      const total = data.reduce((a, r) => a + r.n, 0);
+                      if (!total)
+                        return (
+                          <p className="text-ink2 text-xs">
+                            Belum ada progres pembaca tercatat untuk buku ini.
+                          </p>
+                        );
+                      const reached = (i) =>
+                        data
+                          .filter((r) => r.chap >= i)
+                          .reduce((a, r) => a + r.n, 0);
+                      const lastChap = Math.max(
+                        0,
+                        ...data.map((r) => Math.min(r.chap, b.bab.length - 1)),
+                      );
+                      return (
+                        <>
+                          <p className="mb-2.5 lbl">
+                            Funnel pembaca — di bab mana mereka berhenti
+                          </p>
+                          <div className="space-y-1.5">
+                            {Array.from({ length: lastChap + 1 }, (_, i) => {
+                              const n = reached(i);
+                              return (
+                                <div
+                                  key={i}
+                                  className="flex items-center gap-2">
+                                  <span className="w-12 text-[10px] text-ink2 shrink-0">
+                                    Bab {i + 1}
+                                  </span>
+                                  <div className="flex-1 bg-line rounded h-2 overflow-hidden">
+                                    <div
+                                      className="bg-accent h-full transition-all"
+                                      style={{
+                                        width: `${(n / total) * 100}%`,
+                                      }}
+                                    />
+                                  </div>
+                                  <span className="w-20 tabular-nums text-[10px] text-ink2 text-right shrink-0">
+                                    {n} · {Math.round((n / total) * 100)}%
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <p className="mt-2.5 text-[10px] text-ink2">
+                            {total} pembaca mencapai Bab 1. Angka di tiap baris
+                            = yang tersisa (berdasarkan progres tersimpan).
+                          </p>
+                        </>
+                      );
+                    })()}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -261,6 +383,15 @@ export default function StudioList() {
             "Edit" membuka draft dari buku ter-publish — kalau draftnya tidak
             ada di perangkat ini, draft dibangun ulang otomatis dari bukunya.
             Publish ulang menimpa buku yang sama.
+          </p>
+          <p className="mt-1 text-[11px]">
+            <Link
+              to={`/penulis/${encodeURIComponent(
+                published[0]?.penulis || user.name,
+              )}`}
+              className="text-accent underline underline-offset-4">
+              Lihat halaman publik penulismu →
+            </Link>
           </p>
         </>
       )}

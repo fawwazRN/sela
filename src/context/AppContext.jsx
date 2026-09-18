@@ -23,28 +23,17 @@ const KUNCI_PRIBADI = [
   "bookTime",
   "readlog",
   "finished",
+  "hourlog",
 ];
 
 export function AppProvider({ children }) {
-  /* ============================================================
-     ARSITEKTUR:
-     - Server (Supabase) = SUMBER KEBENARAN saat login
-     - localStorage = CACHE saja (tema, font, tamu, paint instan)
-     - draft       → tabel `drafts`   (satu baris per draft)
-     - statistik,
-       rak, highlight,
-       progres     → tabel `user_data`
-     - buku tayang → tabel `books`
-     - kolaborasi  → admin bisa akses semua draft (RLS is_admin)
-     - pembaca     → 1 akun = 1 hit seumur akun (view_log + bump_unique)
-     ============================================================ */
-
   const [user, setUser] = useState(() => LS("user"));
   const [theme, setTheme] = useState(() => LS("theme") || "terang");
   const [progress, setProgress] = useState(() => LS("progress") || {});
   const [shelf, setShelf] = useState(() => LS("shelf") || KOSONG);
   const [highlights, setHighlights] = useState(() => LS("highlights") || []);
   const [readlog, setReadlog] = useState(() => LS("readlog") || {});
+  const [hourlog, setHourlog] = useState(() => LS("hourlog") || {});
   const [finished, setFinished] = useState(() => LS("finished") || {});
   const [bookTime, setBookTime] = useState(() => LS("bookTime") || {});
   const [goal, setGoalState] = useState(() => {
@@ -57,16 +46,36 @@ export function AppProvider({ children }) {
     SV("goal", v);
   };
 
-  /* draft: mulai dari cache, DITIMPA data server saat login */
   const [drafts, setDrafts] = useState(() => LS("drafts") || []);
 
-  /* ===== data global ===== */
   const [customBooks, setCustomBooks] = useState(() => LS("customBooks") || []);
   const [dbBooks, setDbBooks] = useState(() => LS("dbBooks") || []);
   const [hiddenIds, setHiddenIds] = useState(() => LS("hiddenIds") || []);
   const [glos, setGlos] = useState(() => LS("glos") || DIK);
   const [views, setViews] = useState(() => LS("views") || {});
   const [isAdmin, setIsAdmin] = useState(false);
+
+  const [subs, setSubs] = useState({ plus: null, pro: null });
+  const [customGenres, setCustomGenres] = useState(
+    () => LS("customGenres") || [],
+  );
+  const [priorSlugs, setPriorSlugs] = useState(() => LS("priorSlugs") || []);
+
+  const cekSubs = async (su) => {
+    if (!HAS_DB || !su) return;
+    const { data } = await supabase
+      .from("subscriptions")
+      .select("paket,expired_at,aktif")
+      .eq("user_id", su.id);
+    const now = Date.now();
+    const ambil = (p) => {
+      const row = (data || []).find((r) => r.paket === p);
+      if (!row || !row.aktif) return null;
+      return new Date(row.expired_at) > new Date(now) ? row : null;
+    };
+    const ekstra = ambil("ekstra");
+    setSubs({ plus: ambil("plus") || ekstra, pro: ambil("pro") || ekstra });
+  };
 
   const hydrated = useRef(false);
   const pulledEmail = useRef(null);
@@ -79,7 +88,6 @@ export function AppProvider({ children }) {
     userRef.current = user;
   }, [user]);
 
-  /* ===== persist lokal (peran: CACHE) ===== */
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     SV("theme", theme);
@@ -88,6 +96,7 @@ export function AppProvider({ children }) {
   useEffect(() => SV("shelf", shelf), [shelf]);
   useEffect(() => SV("highlights", highlights), [highlights]);
   useEffect(() => SV("readlog", readlog), [readlog]);
+  useEffect(() => SV("hourlog", hourlog), [hourlog]);
   useEffect(() => SV("finished", finished), [finished]);
   useEffect(() => SV("bookTime", bookTime), [bookTime]);
   useEffect(() => SV("goal", goal), [goal]);
@@ -96,42 +105,64 @@ export function AppProvider({ children }) {
   useEffect(() => SV("hiddenIds", hiddenIds), [hiddenIds]);
   useEffect(() => SV("glos", glos), [glos]);
   useEffect(() => SV("views", views), [views]);
+  useEffect(() => SV("customGenres", customGenres), [customGenres]);
+  useEffect(() => SV("priorSlugs", priorSlugs), [priorSlugs]);
   useEffect(() => {
     draftsRef.current = drafts;
     SV("drafts", drafts);
   }, [drafts]);
 
-  /* ===== muat data global ===== */
+  /* muat data global — rev-gated cache */
   useEffect(() => {
     if (!HAS_DB) return;
     (async () => {
-      const [b, g, m, v] = await Promise.all([
-        supabase.from("books").select("slug,data"),
-        supabase.from("glossary").select("kata,arti"),
-        supabase
-          .from("meta")
-          .select("value")
-          .eq("key", "hidden_ids")
-          .maybeSingle(),
-        supabase.from("views").select("slug,hits"),
-      ]);
-      if (b.data) setDbBooks(b.data.map((r) => r.data));
-      if (g.data && g.data.length) {
-        const o = {};
-        g.data.forEach((r) => (o[r.kata.toLowerCase()] = r.arti));
-        setGlos(o);
-      }
-      if (m.data) setHiddenIds(m.data.value || []);
-      if (v.data) {
+      const { data: revRow } = await supabase
+        .from("catalog_rev")
+        .select("rev")
+        .eq("id", true)
+        .maybeSingle();
+      const rev = Number(revRow?.rev ?? 0);
+      const revLama = Number(LS("globalRev") ?? -1);
+
+      const { data: v } = await supabase.from("views").select("slug,hits");
+      if (v) {
         const vm = {};
-        v.data.forEach((r) => (vm[r.slug] = Number(r.hits)));
+        v.forEach((r) => (vm[r.slug] = Number(r.hits)));
         setViews(vm);
         SV("views", vm);
+      }
+
+      const { data: pr } = await supabase.rpc("buku_prioritas");
+      if (pr) {
+        setPriorSlugs(pr);
+        SV("priorSlugs", pr);
+      }
+
+      if (rev !== revLama) {
+        const [b, g, m, cg] = await Promise.all([
+          supabase.from("books").select("slug,data"),
+          supabase.from("glossary").select("kata,arti"),
+          supabase
+            .from("meta")
+            .select("value")
+            .eq("key", "hidden_ids")
+            .maybeSingle(),
+          supabase.from("custom_genres").select("nama,mode,oleh"),
+        ]);
+        if (b.data) setDbBooks(b.data.map((r) => r.data));
+        if (g.data && g.data.length) {
+          const o = {};
+          g.data.forEach((r) => (o[r.kata.toLowerCase()] = r.arti));
+          setGlos(o);
+        }
+        if (m.data) setHiddenIds(m.data.value || []);
+        setCustomGenres(cg.data || []);
+        SV("customGenres", cg.data || []);
+        SV("globalRev", rev);
       }
     })();
   }, []);
 
-  /* ===== sesi login + admin ===== */
   const cekAdmin = async (email) => {
     if (!HAS_DB || !email) {
       setIsAdmin(false);
@@ -151,6 +182,7 @@ export function AppProvider({ children }) {
     setHighlights([]);
     setBookTime({});
     setReadlog({});
+    setHourlog({});
     setFinished({});
     setDrafts([]);
     KUNCI_PRIBADI.forEach((k) => RM(k));
@@ -171,6 +203,7 @@ export function AppProvider({ children }) {
     setUser(u);
     SV("user", u);
     cekAdmin(su.email);
+    cekSubs(su);
     pullSync(su);
   };
 
@@ -184,6 +217,7 @@ export function AppProvider({ children }) {
       else {
         setUser(null);
         setIsAdmin(false);
+        setSubs({ plus: null, pro: null });
         RM("user");
         pulledEmail.current = null;
         hydrated.current = false;
@@ -197,7 +231,6 @@ export function AppProvider({ children }) {
     alert("Gagal sinkron ke server: " + (e?.message || e));
   };
 
-  /* ===== akun ===== */
   const login = async (email, pass) => {
     if (!HAS_DB) return;
     const { error } = await supabase.auth.signInWithPassword({
@@ -220,12 +253,12 @@ export function AppProvider({ children }) {
     setUser(null);
     setIsAdmin(false);
     setDrafts([]);
+    setSubs({ plus: null, pro: null });
     RM("user");
     pulledEmail.current = null;
     hydrated.current = false;
   };
 
-  /* ===== manajemen admin ===== */
   const listAdmin = async () => {
     const { data, error } = await supabase.from("admins").select("email");
     if (error) throw error;
@@ -244,9 +277,76 @@ export function AppProvider({ children }) {
     if (error) throw error;
   };
 
-  /* ============================================================
-     SINKRON STATISTIK & RAK  (tabel user_data)
-     ============================================================ */
+  const aktifkanSubs = async (email, paket, bulan) => {
+    if (!isAdmin) throw new Error("Hanya admin.");
+    if (!["plus", "pro", "ekstra"].includes(paket))
+      throw new Error("Paket tidak valid.");
+    const { data: pu, error: pe } = await supabase.rpc("user_id_by_email", {
+      email_arg: email.toLowerCase(),
+    });
+    if (pe || !pu)
+      throw new Error("Email tidak ditemukan / belum pernah login.");
+    const expired = new Date();
+    expired.setMonth(expired.getMonth() + (Number(bulan) || 1));
+    const { error } = await supabase.from("subscriptions").upsert({
+      user_id: pu,
+      email: email.toLowerCase(),
+      paket,
+      expired_at: expired.toISOString(),
+      aktif: true,
+    });
+    if (error) throw error;
+  };
+  const listSubs = async () => {
+    const { data, error } = await supabase
+      .from("subscriptions")
+      .select("*")
+      .order("expired_at", { ascending: false });
+    if (error) throw error;
+    return data || [];
+  };
+  const matikanSubs = async (uidArg, paket) => {
+    if (!isAdmin) return;
+    const { error } = await supabase
+      .from("subscriptions")
+      .update({ aktif: false })
+      .eq("user_id", uidArg)
+      .eq("paket", paket);
+    if (error) gagal(error);
+  };
+
+  const addGenre = async (nama, mode = "imersi") => {
+    if (!isAdmin) return;
+    const n = (nama || "").trim();
+    if (!n) return;
+    const { error } = await supabase
+      .from("custom_genres")
+      .upsert({ nama: n, mode, oleh: user?.email });
+    if (error) return gagal(error);
+    setCustomGenres((g) => {
+      const next = [...g.filter((x) => x.nama !== n), { nama: n, mode }];
+      SV("customGenres", next);
+      return next;
+    });
+  };
+
+  /* ===== hapus genre kustom (admin) ===== */
+  const removeGenre = async (nama) => {
+    if (!isAdmin) return;
+    const n = (nama || "").trim();
+    if (!n) return;
+    const { error } = await supabase
+      .from("custom_genres")
+      .delete()
+      .eq("nama", n);
+    if (error) return gagal(error);
+    setCustomGenres((g) => {
+      const next = g.filter((x) => x.nama !== n);
+      SV("customGenres", next);
+      return next;
+    });
+  };
+
   const pushSync = () => {
     const u = userRef.current;
     if (!HAS_DB || !u) return;
@@ -260,6 +360,7 @@ export function AppProvider({ children }) {
           highlights,
           bookTime,
           readlog,
+          hourlog,
           finished,
           goal,
         },
@@ -268,10 +369,6 @@ export function AppProvider({ children }) {
       .then(({ error }) => error && console.error("Push gagal:", error));
   };
 
-  /* ============================================================
-     SINKRON DRAFT  (tabel drafts — write-through, debounce 800ms)
-     /* ← LANGKAH 1: owner_email ikut dikirim supaya kepemilikan
-        tetap milik penulis asli walau admin lain yang mengedit */
   const flushDrafts = () => {
     const u = userRef.current;
     if (!HAS_DB || !u || !dirtyDrafts.current.size) return;
@@ -300,14 +397,11 @@ export function AppProvider({ children }) {
       });
   };
 
-  /* ← LANGKAH 1: admin menarik SEMUA draft; user biasa hanya miliknya.
-     Draft diberi metadata owner/ownerEmail/mine untuk UI kolaborasi. */
   const pullSync = async (su) => {
     if (!HAS_DB || !su || pulledEmail.current === su.email) return;
     pulledEmail.current = su.email;
     hydrated.current = false;
 
-    /* --- 1. statistik & rak --- */
     const { data, error } = await supabase
       .from("user_data")
       .select("data")
@@ -326,11 +420,11 @@ export function AppProvider({ children }) {
       if (d.highlights) setHighlights(d.highlights);
       if (d.bookTime) setBookTime(d.bookTime);
       if (d.readlog) setReadlog(d.readlog);
+      if (d.hourlog) setHourlog(d.hourlog);
       if (d.finished) setFinished(d.finished);
       if (d.goal && Number(d.goal) > 0) setGoalState(Number(d.goal));
     }
 
-    /* --- 2. draft: admin = semua; user biasa = miliknya --- */
     const { data: amAdmin, error: aErr } = await supabase.rpc("is_admin");
     if (aErr) console.warn("is_admin tidak tersedia:", aErr.message);
     let q = supabase
@@ -356,7 +450,6 @@ export function AppProvider({ children }) {
       mine: r.user_id === su.id,
     }));
 
-    /* --- 3. RESCUE sekali jalan: draft yang hanya ada di perangkat ini --- */
     const idServer = new Set(serverDrafts.map((d) => d.id));
     const lokalOnly = (LS("drafts") || []).filter((d) => !idServer.has(d.id));
     const legacy = (data?.data?.drafts || []).filter(
@@ -386,7 +479,6 @@ export function AppProvider({ children }) {
     hydrated.current = true;
   };
 
-  /* auto-push statistik (debounce 1.5 dtk) */
   useEffect(() => {
     if (!HAS_DB || !user || !hydrated.current) return;
     if (skipPush.current) {
@@ -396,9 +488,18 @@ export function AppProvider({ children }) {
     const t = setTimeout(() => pushSync(), 1500);
     return () => clearTimeout(t);
     // eslint-disable-next-line
-  }, [progress, shelf, highlights, bookTime, readlog, finished, goal, user]);
+  }, [
+    progress,
+    shelf,
+    highlights,
+    bookTime,
+    readlog,
+    hourlog,
+    finished,
+    goal,
+    user,
+  ]);
 
-  /* auto-push draft (debounce 800ms) */
   useEffect(() => {
     if (!HAS_DB || !user || !hydrated.current) return;
     if (!dirtyDrafts.current.size) return;
@@ -407,7 +508,6 @@ export function AppProvider({ children }) {
     // eslint-disable-next-line
   }, [drafts, user]);
 
-  /* flush saat tab ditutup */
   useEffect(() => {
     if (!HAS_DB) return;
     const f = () => {
@@ -419,9 +519,18 @@ export function AppProvider({ children }) {
     window.addEventListener("beforeunload", f);
     return () => window.removeEventListener("beforeunload", f);
     // eslint-disable-next-line
-  }, [progress, shelf, highlights, bookTime, readlog, finished, goal, drafts]);
+  }, [
+    progress,
+    shelf,
+    highlights,
+    bookTime,
+    readlog,
+    hourlog,
+    finished,
+    goal,
+    drafts,
+  ]);
 
-  /* retry kalau pull pernah gagal */
   useEffect(() => {
     if (!HAS_DB) return;
     const f = () => {
@@ -432,7 +541,6 @@ export function AppProvider({ children }) {
     return () => window.removeEventListener("focus", f);
   }, []);
 
-  /* ===== aksi data pribadi ===== */
   const saveProgress = (bookId, chap, pct) =>
     setProgress((p) => ({ ...p, [bookId]: { chap, pct, at: Date.now() } }));
   const moveTo = (bookId, list) =>
@@ -452,8 +560,11 @@ export function AppProvider({ children }) {
     setHighlights((hs) => [{ id: uid(), at: today(), ...h }, ...hs]);
   const removeHighlight = (id) =>
     setHighlights((hs) => hs.filter((h) => h.id !== id));
-  const logRead = (sec) =>
+  const logRead = (sec) => {
     setReadlog((r) => ({ ...r, [today()]: (r[today()] || 0) + sec }));
+    const h = new Date().getHours();
+    setHourlog((hl) => ({ ...hl, [h]: (hl[h] || 0) + sec }));
+  };
   const logBookRead = (bookId, sec) =>
     setBookTime((t) => ({ ...t, [bookId]: (t[bookId] || 0) + sec }));
   const finishBook = (id) => {
@@ -465,7 +576,6 @@ export function AppProvider({ children }) {
     }));
   };
 
-  /* draft: tulis lokal + tandai kotor → 800ms kemudian naik ke server */
   const saveDraft = (d) => {
     const id = d.id || uid();
     setDrafts((ds) => {
@@ -489,9 +599,6 @@ export function AppProvider({ children }) {
         .then(({ error }) => error && gagal(error));
   };
 
-  /* ===== buku global ===== */
-  /* ← LANGKAH 1: publish ulang tidak mencuri kepemilikan —
-     owner asli dipertahankan, penting untuk kolaborasi admin */
   const addCustomBook = (b) => {
     const existing = [...customBooks, ...dbBooks].find(
       (x) => x.slug === b.slug,
@@ -555,7 +662,6 @@ export function AppProvider({ children }) {
       .then(({ error }) => error && gagal(error));
   };
 
-  /* ===== glosarium ===== */
   const addGlos = async (kata, arti) => {
     const k = (kata || "").trim().toLowerCase();
     const v = (arti || "").trim();
@@ -588,9 +694,6 @@ export function AppProvider({ children }) {
     if (error) gagal(error);
   };
 
-  /* ===== VIEWS ===== */
-  /* ← LANGKAH 1: akun dihitung SEKALI seumur akun (server-side
-     via view_log+bump_unique); tamu tetap dihitung per sesi */
   const bumpView = async (slug) => {
     if (!HAS_DB) return;
     const k = "sela.viewed." + slug;
@@ -605,7 +708,6 @@ export function AppProvider({ children }) {
     }
   };
 
-  /* ===== REVIEWS ===== */
   const fetchReviews = async (slug) => {
     const { data } = await supabase
       .from("reviews")
@@ -630,7 +732,6 @@ export function AppProvider({ children }) {
     if (error) throw error;
   };
 
-  /* ===== katalog gabungan ===== */
   const books = useMemo(() => {
     const m = new Map();
     [...BOOKS, ...dbBooks, ...customBooks].forEach((b) => {
@@ -639,6 +740,12 @@ export function AppProvider({ children }) {
     return [...m.values()].filter((b) => !hiddenIds.includes(b.id));
   }, [dbBooks, customBooks, hiddenIds]);
   const getBook = (slug) => books.find((b) => b.slug === slug);
+
+  const genres = useMemo(() => {
+    const bawaan = ["Fiksi", "Pelajaran", "Sejarah", "Puisi", "Anak", "Umum"];
+    const tambahan = customGenres.map((g) => g.nama);
+    return [...new Set([...bawaan, ...tambahan])];
+  }, [customGenres]);
 
   return (
     <Ctx.Provider
@@ -651,6 +758,16 @@ export function AppProvider({ children }) {
         listAdmin,
         addAdmin,
         removeAdmin,
+        subs,
+        cekSubs,
+        customGenres,
+        genres,
+        addGenre,
+        removeGenre,
+        aktifkanSubs,
+        listSubs,
+        matikanSubs,
+        priorSlugs,
         theme,
         setTheme,
         progress,
@@ -665,6 +782,7 @@ export function AppProvider({ children }) {
         saveDraft,
         removeDraft,
         readlog,
+        hourlog,
         logRead,
         bookTime,
         logBookRead,

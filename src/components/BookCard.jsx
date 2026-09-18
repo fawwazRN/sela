@@ -14,8 +14,8 @@ export default function BookCard({ book }) {
   return (
     <Link
       to={`/buku/${book.slug}`}
-      className="group relative bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] hover:shadow-[0_10px_28px_rgba(0,0,0,0.14)] p-3 rounded-2xl transition-all hover:-translate-y-1 duration-300 fadein">
-      {/* pita warna genre tipis di atas sampul — bukan border penghalang */}
+      className="group relative bg-paper shadow-[0_2px_10px_rgba(26,24,21,0.05)] hover:shadow-[0_10px_28px_rgba(0,0,0,0.14)] p-3 transition-all hover:-translate-y-1 duration-300 fadein">
+      {/* pita warna genre tipis di atas sampul */}
       <div className="relative">
         <span
           className="-top-1 right-3 left-3 z-10 absolute opacity-0 group-hover:opacity-100 rounded-full h-1 transition-opacity"
@@ -26,12 +26,17 @@ export default function BookCard({ book }) {
 
       <div className="pt-3">
         <div className="flex items-center gap-2">
-          <h3 className="font-display font-semibold group-hover:text-accent leading-snug transition-colors">
+          <h3 className="font-display font-semibold leading-snug">
             {book.judul}
           </h3>
           {book.custom && (
             <span className="bg-accent/15 px-1.5 py-0.5 rounded text-[10px] text-accent uppercase tracking-wider shrink-0">
               {book.custom}
+            </span>
+          )}
+          {book.eksklusif && (
+            <span className="bg-[#F6D860]/20 px-1.5 py-0.5 rounded text-[#8a6d1d] text-[9px] uppercase tracking-wider shrink-0">
+              Eksklusif
             </span>
           )}
         </div>
